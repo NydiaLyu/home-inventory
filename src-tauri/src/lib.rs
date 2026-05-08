@@ -72,6 +72,20 @@ fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
   Ok(items)
 }
 
+#[tauri::command]
+fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
+  let conn = db::open(&state.path).map_err(|e| e.to_string())?;
+  let deleted = conn
+    .execute("DELETE FROM items WHERE id = ?1", rusqlite::params![id])
+    .map_err(|e| e.to_string())?;
+
+  if deleted == 0 {
+    return Err("item not found".to_string());
+  }
+
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -92,7 +106,7 @@ pub fn run() {
 
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![add_item, list_items])
+    .invoke_handler(tauri::generate_handler![add_item, list_items, delete_item])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

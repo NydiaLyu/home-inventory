@@ -82,10 +82,28 @@ body {
 }
 
 .list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid #e4e7eb;
 }
 
 .list li:last-child {
   border-bottom: 0;
+}
+
+.delete-btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #d64545;
+  background: #fff4f4;
+  color: #a61b1b;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  background: #ffe3e3;
 }

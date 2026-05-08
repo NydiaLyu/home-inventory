@@ -35,7 +35,14 @@ const list = document.querySelector<HTMLUListElement>('#items')!
 
 function render(items: Item[]) {
   list.innerHTML = items
-    .map((item) => `<li><span>${item.name}</span></li>`)
+    .map(
+      (item) => `
+        <li data-item-id="${item.id}">
+          <span>${item.name}</span>
+          <button type="button" class="delete-btn" data-id="${item.id}">Delete</button>
+        </li>
+      `,
+    )
     .join('')
 }
 
@@ -55,6 +62,17 @@ addBtn.addEventListener('click', async () => {
 input.addEventListener('keydown', async (event) => {
   if (event.key !== 'Enter') return
   addBtn.click()
+})
+
+list.addEventListener('click', async (event) => {
+  const target = event.target as HTMLElement
+  if (!target.matches('.delete-btn')) return
+
+  const id = Number(target.getAttribute('data-id'))
+  if (!Number.isFinite(id)) return
+
+  await invoke('delete_item', { id })
+  await refresh()
 })
 
 refresh()
