@@ -86,6 +86,28 @@ fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
   Ok(())
 }
 
+#[tauri::command]
+fn update_item(state: tauri::State<DbState>, id: i64, name: String) -> Result<(), String> {
+  let name = name.trim().to_string();
+  if name.is_empty() {
+    return Err("name cannot be empty".to_string());
+  }
+
+  let conn = db::open(&state.path).map_err(|e| e.to_string())?;
+  let updated = conn
+    .execute(
+      "UPDATE items SET name = ?1 WHERE id = ?2",
+      rusqlite::params![name, id],
+    )
+    .map_err(|e| e.to_string())?;
+
+  if updated == 0 {
+    return Err("item not found".to_string());
+  }
+
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -106,7 +128,12 @@ pub fn run() {
 
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![add_item, list_items, delete_item])
+    .invoke_handler(tauri::generate_handler![
+      add_item,
+      list_items,
+      delete_item,
+      update_item
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

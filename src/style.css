@@ -94,14 +94,57 @@ body {
   border-bottom: 0;
 }
 
+.edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd2d9;
+  font-size: 14px;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-btn,
+.save-btn,
+.cancel-btn,
 .delete-btn {
   padding: 6px 10px;
   border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.edit-btn,
+.save-btn {
+  border: 1px solid #385170;
+  background: #eef4fb;
+  color: #243b53;
+}
+
+.edit-btn:hover,
+.save-btn:hover {
+  background: #d9e8f7;
+}
+
+.cancel-btn {
+  border: 1px solid #9aa5b1;
+  background: #f5f7fa;
+  color: #52606d;
+}
+
+.cancel-btn:hover {
+  background: #e4e7eb;
+}
+
+.delete-btn {
   border: 1px solid #d64545;
   background: #fff4f4;
   color: #a61b1b;
-  font-size: 12px;
-  cursor: pointer;
 }
 
 .delete-btn:hover {
