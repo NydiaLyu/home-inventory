@@ -1,22 +1,11 @@
 import './style.css'
-import { invoke } from '@tauri-apps/api/core'
-
-type Item = {
-  id: number
-  name: string
-  created_at: number
-}
+import { addItem, deleteItem, listItems, updateItem } from './api'
+import { renderItems } from './render'
+import type { Item } from './types'
 
 let editingId: number | null = null
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
+let allItems: Item[] = []
+let searchTerm = ''
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) {
@@ -33,6 +22,9 @@ app.innerHTML = `
       <input id="item-input" type="text" placeholder="Add an item name" />
       <button id="add-btn" type="button">Add</button>
     </section>
+    <section class="search">
+      <input id="search-input" type="search" placeholder="Search items" />
+    </section>
     <section class="list">
       <h2>Items</h2>
       <ul id="items"></ul>
@@ -41,53 +33,28 @@ app.innerHTML = `
 `
 
 const input = document.querySelector<HTMLInputElement>('#item-input')!
+const searchInput = document.querySelector<HTMLInputElement>('#search-input')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
 const list = document.querySelector<HTMLUListElement>('#items')!
 
-function render(items: Item[]) {
-  list.innerHTML = items
-    .map(
-      (item) => {
-        if (editingId === item.id) {
-          return `
-            <li data-item-id="${item.id}">
-              <input
-                class="edit-input"
-                data-id="${item.id}"
-                type="text"
-                value="${escapeHtml(item.name)}"
-              />
-              <div class="item-actions">
-                <button type="button" class="save-btn" data-id="${item.id}">Save</button>
-                <button type="button" class="cancel-btn" data-id="${item.id}">Cancel</button>
-              </div>
-            </li>
-          `
-        }
+function getVisibleItems() {
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  if (!normalizedSearch) return allItems
 
-        return `
-          <li data-item-id="${item.id}">
-            <span>${escapeHtml(item.name)}</span>
-            <div class="item-actions">
-              <button type="button" class="edit-btn" data-id="${item.id}">Edit</button>
-              <button type="button" class="delete-btn" data-id="${item.id}">Delete</button>
-            </div>
-          </li>
-        `
-      },
-    )
-    .join('')
+  return allItems.filter((item) =>
+    item.name.toLowerCase().includes(normalizedSearch),
+  )
 }
 
 async function refresh() {
-  const items = await invoke<Item[]>('list_items')
-  render(items)
+  allItems = await listItems()
+  renderItems(list, getVisibleItems(), editingId)
 }
 
 addBtn.addEventListener('click', async () => {
   const name = input.value.trim()
   if (!name) return
-  await invoke<Item>('add_item', { name })
+  await addItem(name)
   input.value = ''
   await refresh()
 })
@@ -95,6 +62,14 @@ addBtn.addEventListener('click', async () => {
 input.addEventListener('keydown', async (event) => {
   if (event.key !== 'Enter') return
   addBtn.click()
+})
+
+searchInput.addEventListener('input', () => {
+  searchTerm = searchInput.value
+  if (editingId !== null) {
+    editingId = null
+  }
+  renderItems(list, getVisibleItems(), editingId)
 })
 
 list.addEventListener('click', async (event) => {
@@ -125,7 +100,7 @@ list.addEventListener('click', async (event) => {
     )
     const name = editInput?.value.trim() ?? ''
     if (!name) return
-    await invoke('update_item', { id, name })
+    await updateItem(id, name)
     editingId = null
     await refresh()
     return
@@ -133,7 +108,7 @@ list.addEventListener('click', async (event) => {
 
   if (!target.matches('.delete-btn')) return
 
-  await invoke('delete_item', { id })
+  await deleteItem(id)
   if (editingId === id) {
     editingId = null
   }
@@ -150,7 +125,7 @@ list.addEventListener('keydown', async (event) => {
   if (event.key === 'Enter') {
     const name = target.value.trim()
     if (!name) return
-    await invoke('update_item', { id, name })
+    await updateItem(id, name)
     editingId = null
     await refresh()
   }
