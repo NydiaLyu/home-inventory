@@ -20,12 +20,21 @@ export function renderItems(list: HTMLUListElement, items: Item[], editingId: nu
       if (editingId === item.id) {
         return `
           <li data-item-id="${item.id}">
-            <input
-              class="edit-input"
-              data-id="${item.id}"
-              type="text"
-              value="${escapeHtml(item.name)}"
-            />
+            <div class="edit-fields">
+              <input
+                class="edit-input name-edit-input"
+                data-id="${item.id}"
+                type="text"
+                value="${escapeHtml(item.name)}"
+              />
+              <input
+                class="edit-input location-edit-input"
+                data-id="${item.id}"
+                type="text"
+                placeholder="Location"
+                value="${escapeHtml(item.location)}"
+              />
+            </div>
             <div class="item-actions">
               <button type="button" class="save-btn" data-id="${item.id}">Save</button>
               <button type="button" class="cancel-btn" data-id="${item.id}">Cancel</button>
@@ -36,7 +45,10 @@ export function renderItems(list: HTMLUListElement, items: Item[], editingId: nu
 
       return `
         <li data-item-id="${item.id}">
-          <span>${escapeHtml(item.name)}</span>
+          <div class="item-main">
+            <span class="item-name">${escapeHtml(item.name)}</span>
+            <span class="item-location">${escapeHtml(item.location) || 'No location'}</span>
+          </div>
           <div class="item-actions">
             <button type="button" class="edit-btn" data-id="${item.id}">Edit</button>
             <button type="button" class="delete-btn" data-id="${item.id}">Delete</button>

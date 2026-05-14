@@ -100,6 +100,31 @@ body {
   border-bottom: 0;
 }
 
+.item-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.item-name {
+  color: #1f2933;
+}
+
+.item-location {
+  color: #829ab1;
+  font-size: 12px;
+}
+
+.edit-fields {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .empty-state {
   justify-content: center;
   color: #829ab1;
@@ -160,4 +185,20 @@ body {
 
 .delete-btn:hover {
   background: #ffe3e3;
+}
+
+@media (max-width: 560px) {
+  .controls,
+  .list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .edit-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .item-actions {
+    justify-content: flex-end;
+  }
 }

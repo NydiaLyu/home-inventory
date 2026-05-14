@@ -14,6 +14,7 @@ struct DbState {
 struct Item {
   id: i64,
   name: String,
+  location: String,
   created_at: i64,
 }
 
@@ -25,18 +26,19 @@ fn now_unix() -> i64 {
 }
 
 #[tauri::command]
-fn add_item(state: tauri::State<DbState>, name: String) -> Result<Item, String> {
+fn add_item(state: tauri::State<DbState>, name: String, location: String) -> Result<Item, String> {
   let name = name.trim().to_string();
   if name.is_empty() {
     return Err("name cannot be empty".to_string());
   }
+  let location = location.trim().to_string();
 
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let created_at = now_unix();
   conn
     .execute(
-      "INSERT INTO items (name, created_at) VALUES (?1, ?2)",
-      rusqlite::params![name, created_at],
+      "INSERT INTO items (name, location, created_at) VALUES (?1, ?2, ?3)",
+      rusqlite::params![name, location, created_at],
     )
     .map_err(|e| e.to_string())?;
 
@@ -44,6 +46,7 @@ fn add_item(state: tauri::State<DbState>, name: String) -> Result<Item, String> 
   Ok(Item {
     id,
     name,
+    location,
     created_at,
   })
 }
@@ -52,7 +55,7 @@ fn add_item(state: tauri::State<DbState>, name: String) -> Result<Item, String> 
 fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let mut stmt = conn
-    .prepare("SELECT id, name, created_at FROM items ORDER BY id DESC")
+    .prepare("SELECT id, name, location, created_at FROM items ORDER BY id DESC")
     .map_err(|e| e.to_string())?;
 
   let rows = stmt
@@ -60,7 +63,8 @@ fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
       Ok(Item {
         id: row.get(0)?,
         name: row.get(1)?,
-        created_at: row.get(2)?,
+        location: row.get(2)?,
+        created_at: row.get(3)?,
       })
     })
     .map_err(|e| e.to_string())?;
@@ -87,17 +91,23 @@ fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn update_item(state: tauri::State<DbState>, id: i64, name: String) -> Result<(), String> {
+fn update_item(
+  state: tauri::State<DbState>,
+  id: i64,
+  name: String,
+  location: String,
+) -> Result<(), String> {
   let name = name.trim().to_string();
   if name.is_empty() {
     return Err("name cannot be empty".to_string());
   }
+  let location = location.trim().to_string();
 
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let updated = conn
     .execute(
-      "UPDATE items SET name = ?1 WHERE id = ?2",
-      rusqlite::params![name, id],
+      "UPDATE items SET name = ?1, location = ?2 WHERE id = ?3",
+      rusqlite::params![name, location, id],
     )
     .map_err(|e| e.to_string())?;
 

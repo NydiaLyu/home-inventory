@@ -5,12 +5,12 @@ export function listItems() {
   return invoke<Item[]>('list_items')
 }
 
-export function addItem(name: string) {
-  return invoke<Item>('add_item', { name })
+export function addItem(name: string, location: string) {
+  return invoke<Item>('add_item', { name, location })
 }
 
-export function updateItem(id: number, name: string) {
-  return invoke('update_item', { id, name })
+export function updateItem(id: number, name: string, location: string) {
+  return invoke('update_item', { id, name, location })
 }
 
 export function deleteItem(id: number) {

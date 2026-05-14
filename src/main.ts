@@ -20,6 +20,7 @@ app.innerHTML = `
     </header>
     <section class="controls">
       <input id="item-input" type="text" placeholder="Add an item name" />
+      <input id="location-input" type="text" placeholder="Location" />
       <button id="add-btn" type="button">Add</button>
     </section>
     <section class="search">
@@ -33,6 +34,7 @@ app.innerHTML = `
 `
 
 const input = document.querySelector<HTMLInputElement>('#item-input')!
+const locationInput = document.querySelector<HTMLInputElement>('#location-input')!
 const searchInput = document.querySelector<HTMLInputElement>('#search-input')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
 const list = document.querySelector<HTMLUListElement>('#items')!
@@ -42,7 +44,9 @@ function getVisibleItems() {
   if (!normalizedSearch) return allItems
 
   return allItems.filter((item) =>
-    item.name.toLowerCase().includes(normalizedSearch),
+    [item.name, item.location].some((value) =>
+      value.toLowerCase().includes(normalizedSearch),
+    ),
   )
 }
 
@@ -53,13 +57,20 @@ async function refresh() {
 
 addBtn.addEventListener('click', async () => {
   const name = input.value.trim()
+  const location = locationInput.value.trim()
   if (!name) return
-  await addItem(name)
+  await addItem(name, location)
   input.value = ''
+  locationInput.value = ''
   await refresh()
 })
 
 input.addEventListener('keydown', async (event) => {
+  if (event.key !== 'Enter') return
+  addBtn.click()
+})
+
+locationInput.addEventListener('keydown', async (event) => {
   if (event.key !== 'Enter') return
   addBtn.click()
 })
@@ -81,7 +92,7 @@ list.addEventListener('click', async (event) => {
     editingId = id
     await refresh()
     const editInput = document.querySelector<HTMLInputElement>(
-      `.edit-input[data-id="${id}"]`,
+      `.name-edit-input[data-id="${id}"]`,
     )
     editInput?.focus()
     editInput?.select()
@@ -95,12 +106,16 @@ list.addEventListener('click', async (event) => {
   }
 
   if (target.matches('.save-btn')) {
-    const editInput = document.querySelector<HTMLInputElement>(
-      `.edit-input[data-id="${id}"]`,
+    const nameInput = document.querySelector<HTMLInputElement>(
+      `.name-edit-input[data-id="${id}"]`,
     )
-    const name = editInput?.value.trim() ?? ''
+    const itemLocationInput = document.querySelector<HTMLInputElement>(
+      `.location-edit-input[data-id="${id}"]`,
+    )
+    const name = nameInput?.value.trim() ?? ''
+    const location = itemLocationInput?.value.trim() ?? ''
     if (!name) return
-    await updateItem(id, name)
+    await updateItem(id, name, location)
     editingId = null
     await refresh()
     return
@@ -123,9 +138,16 @@ list.addEventListener('keydown', async (event) => {
   if (!Number.isFinite(id)) return
 
   if (event.key === 'Enter') {
-    const name = target.value.trim()
+    const nameInput = document.querySelector<HTMLInputElement>(
+      `.name-edit-input[data-id="${id}"]`,
+    )
+    const itemLocationInput = document.querySelector<HTMLInputElement>(
+      `.location-edit-input[data-id="${id}"]`,
+    )
+    const name = nameInput?.value.trim() ?? ''
+    const location = itemLocationInput?.value.trim() ?? ''
     if (!name) return
-    await updateItem(id, name)
+    await updateItem(id, name, location)
     editingId = null
     await refresh()
   }
