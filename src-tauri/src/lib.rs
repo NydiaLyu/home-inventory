@@ -1,13 +1,16 @@
+mod custom_fields;
 mod db;
+mod time;
 
+use custom_fields::{add_custom_field, list_custom_fields};
 use serde::Serialize;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
+use time::now_unix;
 
 #[derive(Clone)]
-struct DbState {
-  path: PathBuf,
+pub(crate) struct DbState {
+  pub(crate) path: PathBuf,
 }
 
 #[derive(Serialize)]
@@ -16,13 +19,6 @@ struct Item {
   name: String,
   location: String,
   created_at: i64,
-}
-
-fn now_unix() -> i64 {
-  SystemTime::now()
-    .duration_since(UNIX_EPOCH)
-    .unwrap_or_default()
-    .as_secs() as i64
 }
 
 #[tauri::command]
@@ -142,7 +138,9 @@ pub fn run() {
       add_item,
       list_items,
       delete_item,
-      update_item
+      update_item,
+      add_custom_field,
+      list_custom_fields
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

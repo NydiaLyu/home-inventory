@@ -28,6 +28,15 @@ pub fn init(db_path: &Path) -> Result<(), Box<dyn Error>> {
     conn.execute("ALTER TABLE items ADD COLUMN location TEXT NOT NULL DEFAULT ''", [])?;
   }
 
+  conn.execute(
+    "CREATE TABLE IF NOT EXISTS custom_fields (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL
+    )",
+    [],
+  )?;
+
   Ok(())
 }
 

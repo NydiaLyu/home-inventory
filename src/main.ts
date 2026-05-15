@@ -1,5 +1,6 @@
 import './style.css'
 import { addItem, deleteItem, listItems, updateItem } from './api'
+import { setupCustomFields } from './custom-fields'
 import { renderItems } from './render'
 import type { Item } from './types'
 
@@ -30,14 +31,25 @@ app.innerHTML = `
       <h2>Items</h2>
       <ul id="items"></ul>
     </section>
+    <section class="custom-fields">
+      <h2>Custom Fields</h2>
+      <div class="custom-field-controls">
+        <input id="field-input" type="text" placeholder="Add a field name" />
+        <button id="field-add-btn" type="button">Add Field</button>
+      </div>
+      <ul id="custom-fields"></ul>
+    </section>
   </main>
 `
 
 const input = document.querySelector<HTMLInputElement>('#item-input')!
 const locationInput = document.querySelector<HTMLInputElement>('#location-input')!
 const searchInput = document.querySelector<HTMLInputElement>('#search-input')!
+const fieldInput = document.querySelector<HTMLInputElement>('#field-input')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
+const fieldAddBtn = document.querySelector<HTMLButtonElement>('#field-add-btn')!
 const list = document.querySelector<HTMLUListElement>('#items')!
+const customFieldsList = document.querySelector<HTMLUListElement>('#custom-fields')!
 
 function getVisibleItems() {
   const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -159,3 +171,8 @@ list.addEventListener('keydown', async (event) => {
 })
 
 refresh()
+setupCustomFields({
+  input: fieldInput,
+  button: fieldAddBtn,
+  list: customFieldsList,
+})
