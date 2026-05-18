@@ -1,4 +1,4 @@
-import type { CustomField, Item } from './types'
+import type { CustomField, CustomFieldValueMap, Item } from './types'
 
 function createButton(label: string, className: string, id: number) {
   const button = document.createElement('button')
@@ -35,7 +35,29 @@ function createActions(buttons: HTMLButtonElement[]) {
   return actions
 }
 
-function createEditableItem(item: Item) {
+function createCustomFieldInput(item: Item, field: CustomField, customFieldValues: CustomFieldValueMap) {
+  const fieldWrapper = document.createElement('label')
+  fieldWrapper.className = 'custom-value-field'
+
+  const label = document.createElement('span')
+  label.textContent = field.name
+
+  const input = createTextInput(
+    'edit-input custom-field-value-input',
+    item.id,
+    customFieldValues[item.id]?.[field.id] ?? '',
+  )
+  input.dataset.fieldId = String(field.id)
+
+  fieldWrapper.append(label, input)
+  return fieldWrapper
+}
+
+function createEditableItem(
+  item: Item,
+  customFields: CustomField[],
+  customFieldValues: CustomFieldValueMap,
+) {
   const row = document.createElement('li')
   row.dataset.itemId = String(item.id)
 
@@ -43,8 +65,16 @@ function createEditableItem(item: Item) {
   fields.className = 'edit-fields'
   fields.append(
     createTextInput('edit-input name-edit-input', item.id, item.name),
-    createTextInput('edit-input location-edit-input', item.id, item.location, 'Location'),
   )
+
+  if (customFields.length > 0) {
+    const customValueFields = document.createElement('div')
+    customValueFields.className = 'custom-value-fields'
+    customValueFields.append(
+      ...customFields.map((field) => createCustomFieldInput(item, field, customFieldValues)),
+    )
+    fields.append(customValueFields)
+  }
 
   row.append(
     fields,
@@ -57,7 +87,11 @@ function createEditableItem(item: Item) {
   return row
 }
 
-function createDisplayItem(item: Item) {
+function createDisplayItem(
+  item: Item,
+  customFields: CustomField[],
+  customFieldValues: CustomFieldValueMap,
+) {
   const row = document.createElement('li')
   row.dataset.itemId = String(item.id)
 
@@ -68,11 +102,23 @@ function createDisplayItem(item: Item) {
   name.className = 'item-name'
   name.textContent = item.name
 
-  const location = document.createElement('span')
-  location.className = 'item-location'
-  location.textContent = item.location || 'No location'
+  main.append(name)
 
-  main.append(name, location)
+  const itemCustomValues = customFieldValues[item.id] ?? {}
+  const filledCustomFields = customFields.filter((field) => itemCustomValues[field.id])
+  if (filledCustomFields.length > 0) {
+    const customValues = document.createElement('div')
+    customValues.className = 'item-custom-values'
+    customValues.append(
+      ...filledCustomFields.map((field) => {
+        const value = document.createElement('span')
+        value.textContent = `${field.name}: ${itemCustomValues[field.id]}`
+        return value
+      }),
+    )
+    main.append(customValues)
+  }
+
   row.append(
     main,
     createActions([
@@ -84,7 +130,13 @@ function createDisplayItem(item: Item) {
   return row
 }
 
-export function renderItems(list: HTMLUListElement, items: Item[], editingId: number | null) {
+export function renderItems(
+  list: HTMLUListElement,
+  items: Item[],
+  editingId: number | null,
+  customFields: CustomField[],
+  customFieldValues: CustomFieldValueMap,
+) {
   if (items.length === 0) {
     list.replaceChildren(createEmptyState('No items found'))
     return
@@ -92,7 +144,9 @@ export function renderItems(list: HTMLUListElement, items: Item[], editingId: nu
 
   list.replaceChildren(
     ...items.map((item) =>
-      editingId === item.id ? createEditableItem(item) : createDisplayItem(item),
+      editingId === item.id
+        ? createEditableItem(item, customFields, customFieldValues)
+        : createDisplayItem(item, customFields, customFieldValues),
     ),
   )
 }

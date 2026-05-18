@@ -1,11 +1,20 @@
 import './style.css'
-import { addItem, deleteItem, listItems, updateItem } from './api'
+import {
+  addItem,
+  deleteItem,
+  listItems,
+  listItemCustomFieldValues,
+  setItemCustomFieldValues,
+  updateItem,
+} from './api'
 import { setupCustomFields } from './custom-fields'
 import { renderItems } from './render'
-import type { Item } from './types'
+import type { CustomField, CustomFieldValueInput, CustomFieldValueMap, Item } from './types'
 
 let editingId: number | null = null
 let allItems: Item[] = []
+let customFields: CustomField[] = []
+let customFieldValues: CustomFieldValueMap = {}
 let searchTerm = ''
 
 const app = document.querySelector<HTMLDivElement>('#app')
@@ -21,7 +30,6 @@ app.innerHTML = `
     </header>
     <section class="controls">
       <input id="item-input" type="text" placeholder="Add an item name" />
-      <input id="location-input" type="text" placeholder="Location" />
       <button id="add-btn" type="button">Add</button>
     </section>
     <section class="search">
@@ -43,7 +51,6 @@ app.innerHTML = `
 `
 
 const input = document.querySelector<HTMLInputElement>('#item-input')!
-const locationInput = document.querySelector<HTMLInputElement>('#location-input')!
 const searchInput = document.querySelector<HTMLInputElement>('#search-input')!
 const fieldInput = document.querySelector<HTMLInputElement>('#field-input')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
@@ -56,33 +63,53 @@ function getVisibleItems() {
   if (!normalizedSearch) return allItems
 
   return allItems.filter((item) =>
-    [item.name, item.location].some((value) =>
+    [
+      item.name,
+      ...Object.values(customFieldValues[item.id] ?? {}),
+    ].some((value) =>
       value.toLowerCase().includes(normalizedSearch),
     ),
   )
 }
 
+function buildCustomFieldValueMap(values: Awaited<ReturnType<typeof listItemCustomFieldValues>>) {
+  return values.reduce<CustomFieldValueMap>((map, value) => {
+    map[value.item_id] ??= {}
+    map[value.item_id][value.field_id] = value.value
+    return map
+  }, {})
+}
+
+function renderVisibleItems() {
+  renderItems(list, getVisibleItems(), editingId, customFields, customFieldValues)
+}
+
 async function refresh() {
   allItems = await listItems()
-  renderItems(list, getVisibleItems(), editingId)
+  customFieldValues = buildCustomFieldValueMap(await listItemCustomFieldValues())
+  renderVisibleItems()
+}
+
+function getEditedCustomFieldValues(id: number): CustomFieldValueInput[] {
+  const inputs = document.querySelectorAll<HTMLInputElement>(
+    `.custom-field-value-input[data-id="${id}"]`,
+  )
+  return [...inputs].flatMap((input) => {
+    const fieldId = Number(input.dataset.fieldId)
+    if (!Number.isFinite(fieldId)) return []
+    return [{ field_id: fieldId, value: input.value.trim() }]
+  })
 }
 
 addBtn.addEventListener('click', async () => {
   const name = input.value.trim()
-  const location = locationInput.value.trim()
   if (!name) return
-  await addItem(name, location)
+  await addItem(name)
   input.value = ''
-  locationInput.value = ''
   await refresh()
 })
 
 input.addEventListener('keydown', async (event) => {
-  if (event.key !== 'Enter') return
-  addBtn.click()
-})
-
-locationInput.addEventListener('keydown', async (event) => {
   if (event.key !== 'Enter') return
   addBtn.click()
 })
@@ -92,7 +119,7 @@ searchInput.addEventListener('input', () => {
   if (editingId !== null) {
     editingId = null
   }
-  renderItems(list, getVisibleItems(), editingId)
+  renderVisibleItems()
 })
 
 list.addEventListener('click', async (event) => {
@@ -121,13 +148,10 @@ list.addEventListener('click', async (event) => {
     const nameInput = document.querySelector<HTMLInputElement>(
       `.name-edit-input[data-id="${id}"]`,
     )
-    const itemLocationInput = document.querySelector<HTMLInputElement>(
-      `.location-edit-input[data-id="${id}"]`,
-    )
     const name = nameInput?.value.trim() ?? ''
-    const location = itemLocationInput?.value.trim() ?? ''
     if (!name) return
-    await updateItem(id, name, location)
+    await updateItem(id, name)
+    await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
     editingId = null
     await refresh()
     return
@@ -153,13 +177,10 @@ list.addEventListener('keydown', async (event) => {
     const nameInput = document.querySelector<HTMLInputElement>(
       `.name-edit-input[data-id="${id}"]`,
     )
-    const itemLocationInput = document.querySelector<HTMLInputElement>(
-      `.location-edit-input[data-id="${id}"]`,
-    )
     const name = nameInput?.value.trim() ?? ''
-    const location = itemLocationInput?.value.trim() ?? ''
     if (!name) return
-    await updateItem(id, name, location)
+    await updateItem(id, name)
+    await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
     editingId = null
     await refresh()
   }
@@ -175,4 +196,8 @@ setupCustomFields({
   input: fieldInput,
   button: fieldAddBtn,
   list: customFieldsList,
+  onChange: (fields) => {
+    customFields = fields
+    renderVisibleItems()
+  },
 })

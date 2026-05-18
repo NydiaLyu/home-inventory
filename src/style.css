@@ -129,9 +129,19 @@ body {
   color: #1f2933;
 }
 
-.item-location {
-  color: #829ab1;
+.item-custom-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.item-custom-values span {
+  border-radius: 999px;
+  background: #f0f4f8;
+  color: #52606d;
   font-size: 12px;
+  padding: 3px 8px;
 }
 
 .edit-fields {
@@ -140,6 +150,21 @@ body {
   min-width: 0;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.custom-value-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.custom-value-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #52606d;
+  font-size: 12px;
 }
 
 .empty-state {
@@ -213,6 +238,10 @@ body {
   }
 
   .edit-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-value-fields {
     grid-template-columns: 1fr;
   }
 

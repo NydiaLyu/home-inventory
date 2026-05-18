@@ -1,8 +1,10 @@
 mod custom_fields;
 mod db;
+mod item_custom_field_values;
 mod time;
 
 use custom_fields::{add_custom_field, list_custom_fields};
+use item_custom_field_values::{list_item_custom_field_values, set_item_custom_field_values};
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::Manager;
@@ -17,24 +19,22 @@ pub(crate) struct DbState {
 struct Item {
   id: i64,
   name: String,
-  location: String,
   created_at: i64,
 }
 
 #[tauri::command]
-fn add_item(state: tauri::State<DbState>, name: String, location: String) -> Result<Item, String> {
+fn add_item(state: tauri::State<DbState>, name: String) -> Result<Item, String> {
   let name = name.trim().to_string();
   if name.is_empty() {
     return Err("name cannot be empty".to_string());
   }
-  let location = location.trim().to_string();
 
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let created_at = now_unix();
   conn
     .execute(
-      "INSERT INTO items (name, location, created_at) VALUES (?1, ?2, ?3)",
-      rusqlite::params![name, location, created_at],
+      "INSERT INTO items (name, created_at) VALUES (?1, ?2)",
+      rusqlite::params![name, created_at],
     )
     .map_err(|e| e.to_string())?;
 
@@ -42,7 +42,6 @@ fn add_item(state: tauri::State<DbState>, name: String, location: String) -> Res
   Ok(Item {
     id,
     name,
-    location,
     created_at,
   })
 }
@@ -51,7 +50,7 @@ fn add_item(state: tauri::State<DbState>, name: String, location: String) -> Res
 fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let mut stmt = conn
-    .prepare("SELECT id, name, location, created_at FROM items ORDER BY id DESC")
+    .prepare("SELECT id, name, created_at FROM items ORDER BY id DESC")
     .map_err(|e| e.to_string())?;
 
   let rows = stmt
@@ -59,8 +58,7 @@ fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
       Ok(Item {
         id: row.get(0)?,
         name: row.get(1)?,
-        location: row.get(2)?,
-        created_at: row.get(3)?,
+        created_at: row.get(2)?,
       })
     })
     .map_err(|e| e.to_string())?;
@@ -74,8 +72,15 @@ fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
 
 #[tauri::command]
 fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
-  let conn = db::open(&state.path).map_err(|e| e.to_string())?;
-  let deleted = conn
+  let mut conn = db::open(&state.path).map_err(|e| e.to_string())?;
+  let tx = conn.transaction().map_err(|e| e.to_string())?;
+  tx.execute(
+    "DELETE FROM item_custom_field_values WHERE item_id = ?1",
+    rusqlite::params![id],
+  )
+  .map_err(|e| e.to_string())?;
+
+  let deleted = tx
     .execute("DELETE FROM items WHERE id = ?1", rusqlite::params![id])
     .map_err(|e| e.to_string())?;
 
@@ -83,6 +88,7 @@ fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
     return Err("item not found".to_string());
   }
 
+  tx.commit().map_err(|e| e.to_string())?;
   Ok(())
 }
 
@@ -91,19 +97,17 @@ fn update_item(
   state: tauri::State<DbState>,
   id: i64,
   name: String,
-  location: String,
 ) -> Result<(), String> {
   let name = name.trim().to_string();
   if name.is_empty() {
     return Err("name cannot be empty".to_string());
   }
-  let location = location.trim().to_string();
 
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let updated = conn
     .execute(
-      "UPDATE items SET name = ?1, location = ?2 WHERE id = ?3",
-      rusqlite::params![name, location, id],
+      "UPDATE items SET name = ?1 WHERE id = ?2",
+      rusqlite::params![name, id],
     )
     .map_err(|e| e.to_string())?;
 
@@ -140,7 +144,9 @@ pub fn run() {
       delete_item,
       update_item,
       add_custom_field,
-      list_custom_fields
+      list_custom_fields,
+      list_item_custom_field_values,
+      set_item_custom_field_values
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

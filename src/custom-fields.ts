@@ -1,16 +1,19 @@
 import { addCustomField, listCustomFields } from './api'
 import { renderCustomFields } from './render'
+import type { CustomField } from './types'
 
 type CustomFieldElements = {
   input: HTMLInputElement
   button: HTMLButtonElement
   list: HTMLUListElement
+  onChange?: (fields: CustomField[]) => void
 }
 
-export function setupCustomFields({ input, button, list }: CustomFieldElements) {
+export function setupCustomFields({ input, button, list, onChange }: CustomFieldElements) {
   async function refreshCustomFields() {
     const fields = await listCustomFields()
     renderCustomFields(list, fields)
+    onChange?.(fields)
   }
 
   async function submitCustomField() {
