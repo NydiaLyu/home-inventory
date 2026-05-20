@@ -9,6 +9,7 @@ import {
 } from './api'
 import { setupCustomFields } from './custom-fields'
 import { renderItems } from './render'
+import { clearStatus, getErrorMessage, showStatus } from './status'
 import type { CustomField, CustomFieldValueInput, CustomFieldValueMap, Item } from './types'
 
 let editingId: number | null = null
@@ -28,6 +29,7 @@ app.innerHTML = `
       <h1>Home Inventory</h1>
       <p>Minimal local items list</p>
     </header>
+    <div id="status-message" class="status-message" hidden></div>
     <section class="controls">
       <input id="item-input" type="text" placeholder="Add an item name" />
       <button id="add-btn" type="button">Add</button>
@@ -53,6 +55,7 @@ app.innerHTML = `
 const input = document.querySelector<HTMLInputElement>('#item-input')!
 const searchInput = document.querySelector<HTMLInputElement>('#search-input')!
 const fieldInput = document.querySelector<HTMLInputElement>('#field-input')!
+const statusMessage = document.querySelector<HTMLDivElement>('#status-message')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
 const fieldAddBtn = document.querySelector<HTMLButtonElement>('#field-add-btn')!
 const list = document.querySelector<HTMLUListElement>('#items')!
@@ -85,9 +88,13 @@ function renderVisibleItems() {
 }
 
 async function refresh() {
-  allItems = await listItems()
-  customFieldValues = buildCustomFieldValueMap(await listItemCustomFieldValues())
-  renderVisibleItems()
+  try {
+    allItems = await listItems()
+    customFieldValues = buildCustomFieldValueMap(await listItemCustomFieldValues())
+    renderVisibleItems()
+  } catch (error) {
+    showStatus(statusMessage, getErrorMessage(error), 'error')
+  }
 }
 
 function getEditedCustomFieldValues(id: number): CustomFieldValueInput[] {
@@ -104,9 +111,15 @@ function getEditedCustomFieldValues(id: number): CustomFieldValueInput[] {
 addBtn.addEventListener('click', async () => {
   const name = input.value.trim()
   if (!name) return
-  await addItem(name)
-  input.value = ''
-  await refresh()
+  clearStatus(statusMessage)
+  try {
+    await addItem(name)
+    input.value = ''
+    await refresh()
+    showStatus(statusMessage, 'Item added', 'success')
+  } catch (error) {
+    showStatus(statusMessage, getErrorMessage(error), 'error')
+  }
 })
 
 input.addEventListener('keydown', async (event) => {
@@ -128,6 +141,7 @@ list.addEventListener('click', async (event) => {
   if (!Number.isFinite(id)) return
 
   if (target.matches('.edit-btn')) {
+    clearStatus(statusMessage)
     editingId = id
     await refresh()
     const editInput = document.querySelector<HTMLInputElement>(
@@ -139,6 +153,7 @@ list.addEventListener('click', async (event) => {
   }
 
   if (target.matches('.cancel-btn')) {
+    clearStatus(statusMessage)
     editingId = null
     await refresh()
     return
@@ -150,20 +165,32 @@ list.addEventListener('click', async (event) => {
     )
     const name = nameInput?.value.trim() ?? ''
     if (!name) return
-    await updateItem(id, name)
-    await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
-    editingId = null
-    await refresh()
+    clearStatus(statusMessage)
+    try {
+      await updateItem(id, name)
+      await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
+      editingId = null
+      await refresh()
+      showStatus(statusMessage, 'Item saved', 'success')
+    } catch (error) {
+      showStatus(statusMessage, getErrorMessage(error), 'error')
+    }
     return
   }
 
   if (!target.matches('.delete-btn')) return
 
-  await deleteItem(id)
-  if (editingId === id) {
-    editingId = null
+  clearStatus(statusMessage)
+  try {
+    await deleteItem(id)
+    if (editingId === id) {
+      editingId = null
+    }
+    await refresh()
+    showStatus(statusMessage, 'Item deleted', 'success')
+  } catch (error) {
+    showStatus(statusMessage, getErrorMessage(error), 'error')
   }
-  await refresh()
 })
 
 list.addEventListener('keydown', async (event) => {
@@ -179,10 +206,16 @@ list.addEventListener('keydown', async (event) => {
     )
     const name = nameInput?.value.trim() ?? ''
     if (!name) return
-    await updateItem(id, name)
-    await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
-    editingId = null
-    await refresh()
+    clearStatus(statusMessage)
+    try {
+      await updateItem(id, name)
+      await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
+      editingId = null
+      await refresh()
+      showStatus(statusMessage, 'Item saved', 'success')
+    } catch (error) {
+      showStatus(statusMessage, getErrorMessage(error), 'error')
+    }
   }
 
   if (event.key === 'Escape') {
@@ -196,6 +229,7 @@ setupCustomFields({
   input: fieldInput,
   button: fieldAddBtn,
   list: customFieldsList,
+  status: statusMessage,
   onChange: (fields) => {
     customFields = fields
     renderVisibleItems()

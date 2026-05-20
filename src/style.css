@@ -40,6 +40,29 @@ body {
   color: #52606d;
 }
 
+.status-message {
+  margin-bottom: 14px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.status-message[hidden] {
+  display: none;
+}
+
+.status-message.success {
+  border: 1px solid #8fcf9b;
+  background: #effaf1;
+  color: #276738;
+}
+
+.status-message.error {
+  border: 1px solid #e19a9a;
+  background: #fff1f1;
+  color: #9b1c1c;
+}
+
 .controls {
   display: flex;
   gap: 12px;
