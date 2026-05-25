@@ -3,7 +3,7 @@ mod db;
 mod item_custom_field_values;
 mod time;
 
-use custom_fields::{add_custom_field, list_custom_fields};
+use custom_fields::{add_custom_field, delete_custom_field, list_custom_fields};
 use item_custom_field_values::{list_item_custom_field_values, set_item_custom_field_values};
 use serde::Serialize;
 use std::path::PathBuf;
@@ -144,6 +144,7 @@ pub fn run() {
       delete_item,
       update_item,
       add_custom_field,
+      delete_custom_field,
       list_custom_fields,
       list_item_custom_field_values,
       set_item_custom_field_values

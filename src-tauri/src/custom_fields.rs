@@ -68,3 +68,26 @@ pub(crate) fn list_custom_fields(
 
   Ok(fields)
 }
+
+#[tauri::command]
+pub(crate) fn delete_custom_field(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
+  let mut conn = db::open(&state.path).map_err(|e| e.to_string())?;
+  let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+  tx.execute(
+    "DELETE FROM item_custom_field_values WHERE field_id = ?1",
+    rusqlite::params![id],
+  )
+  .map_err(|e| e.to_string())?;
+
+  let deleted = tx
+    .execute("DELETE FROM custom_fields WHERE id = ?1", rusqlite::params![id])
+    .map_err(|e| e.to_string())?;
+
+  if deleted == 0 {
+    return Err("custom field not found".to_string());
+  }
+
+  tx.commit().map_err(|e| e.to_string())?;
+  Ok(())
+}

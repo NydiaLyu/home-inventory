@@ -232,6 +232,6 @@ setupCustomFields({
   status: statusMessage,
   onChange: (fields) => {
     customFields = fields
-    renderVisibleItems()
+    refresh()
   },
 })

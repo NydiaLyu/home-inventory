@@ -162,7 +162,10 @@ export function renderCustomFields(list: HTMLUListElement, fields: CustomField[]
       const item = document.createElement('li')
       const name = document.createElement('span')
       name.textContent = field.name
-      item.append(name)
+      item.append(
+        name,
+        createButton('Delete', 'delete-field-btn delete-btn', field.id),
+      )
       return item
     }),
   )
