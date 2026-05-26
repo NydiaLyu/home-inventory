@@ -91,3 +91,36 @@ pub(crate) fn delete_custom_field(state: tauri::State<DbState>, id: i64) -> Resu
   tx.commit().map_err(|e| e.to_string())?;
   Ok(())
 }
+
+#[tauri::command]
+pub(crate) fn update_custom_field(
+  state: tauri::State<DbState>,
+  id: i64,
+  name: String,
+) -> Result<(), String> {
+  let name = name.trim().to_string();
+  if name.is_empty() {
+    return Err("field name cannot be empty".to_string());
+  }
+
+  let conn = db::open(&state.path).map_err(|e| e.to_string())?;
+  let updated = conn
+    .execute(
+      "UPDATE custom_fields SET name = ?1 WHERE id = ?2",
+      rusqlite::params![name, id],
+    )
+    .map_err(|e| {
+      if let rusqlite::Error::SqliteFailure(_, Some(message)) = &e {
+        if message.contains("UNIQUE") {
+          return "field name already exists".to_string();
+        }
+      }
+      e.to_string()
+    })?;
+
+  if updated == 0 {
+    return Err("custom field not found".to_string());
+  }
+
+  Ok(())
+}

@@ -151,7 +151,11 @@ export function renderItems(
   )
 }
 
-export function renderCustomFields(list: HTMLUListElement, fields: CustomField[]) {
+export function renderCustomFields(
+  list: HTMLUListElement,
+  fields: CustomField[],
+  editingFieldId: number | null = null,
+) {
   if (fields.length === 0) {
     list.replaceChildren(createEmptyState('No custom fields'))
     return
@@ -160,11 +164,25 @@ export function renderCustomFields(list: HTMLUListElement, fields: CustomField[]
   list.replaceChildren(
     ...fields.map((field) => {
       const item = document.createElement('li')
+      if (editingFieldId === field.id) {
+        item.append(
+          createTextInput('edit-input custom-field-edit-input', field.id, field.name),
+          createActions([
+            createButton('Save', 'save-field-btn save-btn', field.id),
+            createButton('Cancel', 'cancel-field-btn cancel-btn', field.id),
+          ]),
+        )
+        return item
+      }
+
       const name = document.createElement('span')
       name.textContent = field.name
       item.append(
         name,
-        createButton('Delete', 'delete-field-btn delete-btn', field.id),
+        createActions([
+          createButton('Edit', 'edit-field-btn edit-btn', field.id),
+          createButton('Delete', 'delete-field-btn delete-btn', field.id),
+        ]),
       )
       return item
     }),

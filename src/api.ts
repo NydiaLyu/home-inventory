@@ -29,6 +29,10 @@ export function deleteCustomField(id: number) {
   return invoke('delete_custom_field', { id })
 }
 
+export function updateCustomField(id: number, name: string) {
+  return invoke('update_custom_field', { id, name })
+}
+
 export function listItemCustomFieldValues() {
   return invoke<ItemCustomFieldValue[]>('list_item_custom_field_values')
 }
