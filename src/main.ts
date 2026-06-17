@@ -17,6 +17,7 @@ let allItems: Item[] = []
 let customFields: CustomField[] = []
 let customFieldValues: CustomFieldValueMap = {}
 let searchTerm = ''
+let customFieldControls: { render: () => void } | undefined
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) {
@@ -47,6 +48,14 @@ app.innerHTML = `
         <input id="field-input" type="text" placeholder="Add a field name" />
         <button id="field-add-btn" type="button">Add Field</button>
       </div>
+      <label class="field-sort-control">
+        <span>Sort by:</span>
+        <select id="field-sort-select" class="field-sort-select">
+          <option value="most_used">Most used</option>
+          <option value="recently_added">Recently added</option>
+          <option value="earliest_added">Earliest added</option>
+        </select>
+      </label>
       <ul id="custom-fields"></ul>
     </section>
   </main>
@@ -55,6 +64,7 @@ app.innerHTML = `
 const input = document.querySelector<HTMLInputElement>('#item-input')!
 const searchInput = document.querySelector<HTMLInputElement>('#search-input')!
 const fieldInput = document.querySelector<HTMLInputElement>('#field-input')!
+const fieldSortSelect = document.querySelector<HTMLSelectElement>('#field-sort-select')!
 const statusMessage = document.querySelector<HTMLDivElement>('#status-message')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
 const fieldAddBtn = document.querySelector<HTMLButtonElement>('#field-add-btn')!
@@ -92,6 +102,7 @@ async function refresh() {
     allItems = await listItems()
     customFieldValues = buildCustomFieldValueMap(await listItemCustomFieldValues())
     renderVisibleItems()
+    customFieldControls?.render()
   } catch (error) {
     showStatus(statusMessage, getErrorMessage(error), 'error')
   }
@@ -225,13 +236,16 @@ list.addEventListener('keydown', async (event) => {
 })
 
 refresh()
-setupCustomFields({
+customFieldControls = setupCustomFields({
   input: fieldInput,
   button: fieldAddBtn,
   list: customFieldsList,
+  sortSelect: fieldSortSelect,
   status: statusMessage,
+  getCustomFieldValues: () => customFieldValues,
   onChange: (fields) => {
     customFields = fields
-    refresh()
+    renderVisibleItems()
   },
 })
+

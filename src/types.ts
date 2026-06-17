@@ -22,3 +22,5 @@ export type CustomFieldValueInput = {
 }
 
 export type CustomFieldValueMap = Record<number, Record<number, string>>
+
+export type FieldSortMode = 'most_used' | 'recently_added' | 'earliest_added'

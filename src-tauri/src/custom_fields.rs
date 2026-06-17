@@ -20,6 +20,7 @@ pub(crate) fn add_custom_field(
 
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let created_at = now_unix();
+
   conn
     .execute(
       "INSERT INTO custom_fields (name, created_at) VALUES (?1, ?2)",
@@ -48,7 +49,7 @@ pub(crate) fn list_custom_fields(
 ) -> Result<Vec<CustomField>, String> {
   let conn = db::open(&state.path).map_err(|e| e.to_string())?;
   let mut stmt = conn
-    .prepare("SELECT id, name, created_at FROM custom_fields ORDER BY id DESC")
+    .prepare("SELECT id, name, created_at FROM custom_fields ORDER BY created_at DESC, id DESC")
     .map_err(|e| e.to_string())?;
 
   let rows = stmt

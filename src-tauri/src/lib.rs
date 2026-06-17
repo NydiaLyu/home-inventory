@@ -148,7 +148,6 @@ pub fn run() {
       list_custom_fields,
       delete_custom_field,
       update_custom_field,
-      
       list_item_custom_field_values,
       set_item_custom_field_values
     ])

@@ -1,23 +1,59 @@
 import { addCustomField, deleteCustomField, listCustomFields, updateCustomField } from './api'
 import { renderCustomFields } from './render'
 import { clearStatus, getErrorMessage, showStatus } from './status'
-import type { CustomField } from './types'
+import type { CustomField, CustomFieldValueMap, FieldSortMode } from './types'
 
 type CustomFieldElements = {
   input: HTMLInputElement
   button: HTMLButtonElement
   list: HTMLUListElement
+  sortSelect: HTMLSelectElement
   status: HTMLElement
+  getCustomFieldValues: () => CustomFieldValueMap
   onChange?: (fields: CustomField[]) => void
 }
 
-export function setupCustomFields({ input, button, list, status, onChange }: CustomFieldElements) {
+function countFieldUsage(values: CustomFieldValueMap, fieldId: number) {
+  return Object.values(values).filter((itemValues) => itemValues[fieldId]?.trim()).length
+}
+
+function sortFields(
+  fields: CustomField[],
+  sortMode: FieldSortMode,
+  customFieldValues: CustomFieldValueMap,
+) {
+  return [...fields].sort((left, right) => {
+    if (sortMode === 'most_used') {
+      const leftUsage = countFieldUsage(customFieldValues, left.id)
+      const rightUsage = countFieldUsage(customFieldValues, right.id)
+      return rightUsage - leftUsage || right.created_at - left.created_at || right.id - left.id
+    }
+
+    if (sortMode === 'earliest_added') {
+      return left.created_at - right.created_at || left.id - right.id
+    }
+
+    return right.created_at - left.created_at || right.id - left.id
+  })
+}
+
+export function setupCustomFields({
+  input,
+  button,
+  list,
+  sortSelect,
+  status,
+  getCustomFieldValues,
+  onChange,
+}: CustomFieldElements) {
   let fieldsCache: CustomField[] = []
   let editingFieldId: number | null = null
+  let sortMode = sortSelect.value as FieldSortMode
 
   function renderCurrentFields() {
-    renderCustomFields(list, fieldsCache, editingFieldId)
-    onChange?.(fieldsCache)
+    const sortedFields = sortFields(fieldsCache, sortMode, getCustomFieldValues())
+    renderCustomFields(list, sortedFields, editingFieldId)
+    onChange?.(sortedFields)
   }
 
   async function refreshCustomFields() {
@@ -81,6 +117,11 @@ export function setupCustomFields({ input, button, list, status, onChange }: Cus
     if (event.key !== 'Enter') return
     submitCustomField()
   })
+  sortSelect.addEventListener('change', () => {
+    sortMode = sortSelect.value as FieldSortMode
+    editingFieldId = null
+    renderCurrentFields()
+  })
   list.addEventListener('click', (event) => {
     const target = event.target as HTMLElement
     const id = Number(target.dataset.id)
@@ -132,4 +173,7 @@ export function setupCustomFields({ input, button, list, status, onChange }: Cus
   })
 
   refreshCustomFields()
+  return {
+    render: renderCurrentFields,
+  }
 }
