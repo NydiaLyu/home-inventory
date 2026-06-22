@@ -8,15 +8,22 @@ import {
   updateItem,
 } from './api'
 import { setupCustomFields } from './custom-fields'
-import { renderItems } from './render'
+import { renderDetailsPanel, renderItems } from './render'
 import { clearStatus, getErrorMessage, showStatus } from './status'
-import type { CustomField, CustomFieldValueInput, CustomFieldValueMap, Item } from './types'
+import type {
+  CustomField,
+  CustomFieldValueInput,
+  CustomFieldValueMap,
+  Item,
+  SelectedDetail,
+} from './types'
 
 let editingId: number | null = null
 let allItems: Item[] = []
 let customFields: CustomField[] = []
 let customFieldValues: CustomFieldValueMap = {}
 let searchTerm = ''
+let selectedDetail: SelectedDetail = null
 let customFieldControls: { render: () => void } | undefined
 
 const app = document.querySelector<HTMLDivElement>('#app')
@@ -26,38 +33,66 @@ if (!app) {
 
 app.innerHTML = `
   <main class="container">
-    <header class="header">
+    <header class="app-header">
       <h1>Home Inventory</h1>
-      <p>Minimal local items list</p>
+      <p>Browse, find, and update household items</p>
+      <section class="top-search" aria-label="Search items">
+        <input id="search-input" type="search" placeholder="Search items" />
+      </section>
     </header>
     <div id="status-message" class="status-message" hidden></div>
-    <section class="controls">
-      <input id="item-input" type="text" placeholder="Add an item name" />
-      <button id="add-btn" type="button">Add</button>
-    </section>
-    <section class="search">
-      <input id="search-input" type="search" placeholder="Search items" />
-    </section>
-    <section class="list">
-      <h2>Items</h2>
-      <ul id="items"></ul>
-    </section>
-    <section class="custom-fields">
-      <h2>Custom Fields</h2>
-      <div class="custom-field-controls">
-        <input id="field-input" type="text" placeholder="Add a field name" />
-        <button id="field-add-btn" type="button">Add Field</button>
+    <div class="inventory-layout">
+      <div class="module-stack">
+        <details class="module-section items-section" open>
+          <summary>
+            <span>Items</span>
+            <small>Add, browse, and edit household items</small>
+          </summary>
+          <div class="module-content">
+            <section class="quick-add" aria-label="Add item">
+              <input id="item-input" type="text" placeholder="Add an item name" />
+              <button id="add-btn" type="button">Add</button>
+            </section>
+            <ul id="items"></ul>
+          </div>
+        </details>
+        <details class="module-section spaces-section" open>
+          <summary>
+            <span>Spaces</span>
+            <small>Prepare room and storage hierarchy</small>
+          </summary>
+          <div class="module-content">
+            <p class="module-placeholder">Space hierarchy will be managed here.</p>
+            <button class="placeholder-action" type="button" disabled>All spaces</button>
+          </div>
+        </details>
+        <details class="module-section custom-fields" open>
+          <summary>
+            <span>Custom Fields</span>
+            <small>Control extra item information</small>
+          </summary>
+          <div class="module-content">
+            <div class="custom-field-controls">
+              <input id="field-input" type="text" placeholder="Add a field name" />
+              <button id="field-add-btn" type="button">Add</button>
+            </div>
+            <label class="field-sort-control">
+              <span>Sort by:</span>
+              <select id="field-sort-select" class="field-sort-select">
+                <option value="most_used">Most used</option>
+                <option value="recently_added">Recently added</option>
+                <option value="earliest_added">Earliest added</option>
+              </select>
+            </label>
+            <ul id="custom-fields"></ul>
+          </div>
+        </details>
       </div>
-      <label class="field-sort-control">
-        <span>Sort by:</span>
-        <select id="field-sort-select" class="field-sort-select">
-          <option value="most_used">Most used</option>
-          <option value="recently_added">Recently added</option>
-          <option value="earliest_added">Earliest added</option>
-        </select>
-      </label>
-      <ul id="custom-fields"></ul>
-    </section>
+      <aside class="details-panel">
+        <h2>Details</h2>
+        <div id="details-panel-content"></div>
+      </aside>
+    </div>
   </main>
 `
 
@@ -69,6 +104,7 @@ const statusMessage = document.querySelector<HTMLDivElement>('#status-message')!
 const addBtn = document.querySelector<HTMLButtonElement>('#add-btn')!
 const fieldAddBtn = document.querySelector<HTMLButtonElement>('#field-add-btn')!
 const list = document.querySelector<HTMLUListElement>('#items')!
+const detailsPanelContent = document.querySelector<HTMLElement>('#details-panel-content')!
 const customFieldsList = document.querySelector<HTMLUListElement>('#custom-fields')!
 
 function getVisibleItems() {
@@ -94,7 +130,41 @@ function buildCustomFieldValueMap(values: Awaited<ReturnType<typeof listItemCust
 }
 
 function renderVisibleItems() {
-  renderItems(list, getVisibleItems(), editingId, customFields, customFieldValues)
+  normalizeSelectedDetail()
+  renderItems(list, getVisibleItems(), editingId, selectedDetail, customFields, customFieldValues)
+  renderSelectedDetail()
+}
+
+function renderSelectedDetail() {
+  renderDetailsPanel(
+    detailsPanelContent,
+    selectedDetail,
+    allItems,
+    customFields,
+    customFieldValues,
+  )
+}
+
+function normalizeSelectedDetail() {
+  if (selectedDetail?.type === 'item' && !allItems.some((item) => item.id === selectedDetail?.id)) {
+    selectedDetail = null
+  }
+
+  if (
+    selectedDetail?.type === 'customField' &&
+    !customFields.some((field) => field.id === selectedDetail?.id)
+  ) {
+    selectedDetail = null
+  }
+}
+
+function toggleSelectedDetail(nextDetail: Exclude<SelectedDetail, null>) {
+  selectedDetail =
+    selectedDetail?.type === nextDetail.type && selectedDetail.id === nextDetail.id
+      ? null
+      : nextDetail
+  renderVisibleItems()
+  customFieldControls?.render()
 }
 
 async function refresh() {
@@ -149,9 +219,9 @@ searchInput.addEventListener('input', () => {
 list.addEventListener('click', async (event) => {
   const target = event.target as HTMLElement
   const id = Number(target.getAttribute('data-id'))
-  if (!Number.isFinite(id)) return
 
   if (target.matches('.edit-btn')) {
+    if (!Number.isFinite(id)) return
     clearStatus(statusMessage)
     editingId = id
     await refresh()
@@ -171,6 +241,7 @@ list.addEventListener('click', async (event) => {
   }
 
   if (target.matches('.save-btn')) {
+    if (!Number.isFinite(id)) return
     const nameInput = document.querySelector<HTMLInputElement>(
       `.name-edit-input[data-id="${id}"]`,
     )
@@ -189,18 +260,31 @@ list.addEventListener('click', async (event) => {
     return
   }
 
-  if (!target.matches('.delete-btn')) return
+  if (target.matches('.delete-btn')) {
+    if (!Number.isFinite(id)) return
 
-  clearStatus(statusMessage)
-  try {
-    await deleteItem(id)
-    if (editingId === id) {
-      editingId = null
+    clearStatus(statusMessage)
+    try {
+      await deleteItem(id)
+      if (editingId === id) {
+        editingId = null
+      }
+      if (selectedDetail?.type === 'item' && selectedDetail.id === id) {
+        selectedDetail = null
+      }
+      await refresh()
+      showStatus(statusMessage, 'Item deleted', 'success')
+    } catch (error) {
+      showStatus(statusMessage, getErrorMessage(error), 'error')
     }
-    await refresh()
-    showStatus(statusMessage, 'Item deleted', 'success')
-  } catch (error) {
-    showStatus(statusMessage, getErrorMessage(error), 'error')
+    return
+  }
+
+  const row = target.closest<HTMLLIElement>('.item-row')
+  const rowId = Number(row?.dataset.itemId)
+  if (Number.isFinite(rowId)) {
+    clearStatus(statusMessage)
+    toggleSelectedDetail({ type: 'item', id: rowId })
   }
 })
 
@@ -243,6 +327,11 @@ customFieldControls = setupCustomFields({
   sortSelect: fieldSortSelect,
   status: statusMessage,
   getCustomFieldValues: () => customFieldValues,
+  getSelectedFieldId: () =>
+    selectedDetail?.type === 'customField' ? selectedDetail.id : null,
+  onSelectField: (id) => {
+    toggleSelectedDetail({ type: 'customField', id })
+  },
   onChange: (fields) => {
     customFields = fields
     renderVisibleItems()

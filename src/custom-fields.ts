@@ -10,7 +10,9 @@ type CustomFieldElements = {
   sortSelect: HTMLSelectElement
   status: HTMLElement
   getCustomFieldValues: () => CustomFieldValueMap
+  getSelectedFieldId?: () => number | null
   onChange?: (fields: CustomField[]) => void
+  onSelectField?: (id: number) => void
 }
 
 function countFieldUsage(values: CustomFieldValueMap, fieldId: number) {
@@ -44,7 +46,9 @@ export function setupCustomFields({
   sortSelect,
   status,
   getCustomFieldValues,
+  getSelectedFieldId,
   onChange,
+  onSelectField,
 }: CustomFieldElements) {
   let fieldsCache: CustomField[] = []
   let editingFieldId: number | null = null
@@ -52,7 +56,7 @@ export function setupCustomFields({
 
   function renderCurrentFields() {
     const sortedFields = sortFields(fieldsCache, sortMode, getCustomFieldValues())
-    renderCustomFields(list, sortedFields, editingFieldId)
+    renderCustomFields(list, sortedFields, editingFieldId, getSelectedFieldId?.() ?? null)
     onChange?.(sortedFields)
   }
 
@@ -125,9 +129,9 @@ export function setupCustomFields({
   list.addEventListener('click', (event) => {
     const target = event.target as HTMLElement
     const id = Number(target.dataset.id)
-    if (!Number.isFinite(id)) return
 
     if (target.matches('.edit-field-btn')) {
+      if (!Number.isFinite(id)) return
       clearStatus(status)
       editingFieldId = id
       renderCurrentFields()
@@ -147,12 +151,22 @@ export function setupCustomFields({
     }
 
     if (target.matches('.save-field-btn')) {
+      if (!Number.isFinite(id)) return
       saveField(id)
       return
     }
 
     if (target.matches('.delete-field-btn')) {
+      if (!Number.isFinite(id)) return
       deleteField(id)
+      return
+    }
+
+    const row = target.closest<HTMLLIElement>('.custom-field-row')
+    const rowId = Number(row?.dataset.id)
+    if (Number.isFinite(rowId)) {
+      clearStatus(status)
+      onSelectField?.(rowId)
     }
   })
   list.addEventListener('keydown', (event) => {

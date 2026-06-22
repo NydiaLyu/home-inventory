@@ -22,7 +22,7 @@ body {
 }
 
 .container {
-  max-width: 720px;
+  max-width: 1120px;
   margin: 0 auto;
   background: #ffffff;
   border-radius: 14px;
@@ -30,13 +30,18 @@ body {
   box-shadow: 0 12px 30px rgba(31, 41, 51, 0.12);
 }
 
-.header h1 {
+.app-header {
+  margin-bottom: 18px;
+}
+
+.app-header h1 {
   margin: 0 0 6px;
   font-size: 28px;
 }
 
-.header p {
-  margin: 0 0 18px;
+.app-header p,
+.module-section summary small {
+  margin: 0;
   color: #52606d;
 }
 
@@ -63,14 +68,20 @@ body {
   color: #9b1c1c;
 }
 
-.controls {
+.quick-add,
+.top-search {
   display: flex;
   gap: 12px;
-  margin-bottom: 12px;
 }
 
-.controls input,
-.search input,
+.top-search {
+  width: 100%;
+  max-width: 560px;
+  margin-top: 14px;
+}
+
+.quick-add input,
+.top-search input,
 .custom-field-controls input {
   flex: 1;
   width: 100%;
@@ -80,7 +91,7 @@ body {
   font-size: 14px;
 }
 
-.controls button,
+.quick-add button,
 .custom-field-controls button {
   padding: 10px 16px;
   border-radius: 8px;
@@ -91,22 +102,92 @@ body {
   cursor: pointer;
 }
 
-.controls button:hover,
+.quick-add button:hover,
 .custom-field-controls button:hover {
   background: #3e4c59;
 }
 
 .search {
-  margin-bottom: 22px;
+  margin-bottom: 12px;
 }
 
-.list h2,
-.custom-fields h2 {
+.inventory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.module-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.module-section,
+.details-panel {
+  border: 1px solid #e4e7eb;
+  border-radius: 10px;
+  background: #fbfcfd;
+  padding: 14px;
+}
+
+.module-section summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.module-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.module-section summary::after {
+  color: #829ab1;
+  content: "Collapse";
+  font-size: 12px;
+}
+
+.module-section:not([open]) summary::after {
+  content: "Expand";
+}
+
+.module-section summary span {
+  color: #1f2933;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.module-section summary small {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.module-content {
+  margin-top: 12px;
+}
+
+.details-panel {
+  position: sticky;
+  top: 20px;
+}
+
+.details-panel h2 {
   margin: 0 0 10px;
   font-size: 16px;
 }
 
-.list ul,
+.details-panel-empty {
+  margin: 0;
+  color: #829ab1;
+  font-size: 13px;
+}
+
+.items-section ul,
 .custom-fields ul {
   list-style: none;
   padding: 0;
@@ -115,7 +196,7 @@ body {
   border-radius: 8px;
 }
 
-.list li,
+.items-section li,
 .custom-fields li {
   display: flex;
   align-items: center;
@@ -125,13 +206,104 @@ body {
   border-bottom: 1px solid #e4e7eb;
 }
 
-.list li:last-child,
+.items-section li:last-child,
 .custom-fields li:last-child {
   border-bottom: 0;
 }
 
-.custom-fields {
-  margin-top: 26px;
+.module-placeholder {
+  margin: 0 0 10px;
+  color: #52606d;
+  font-size: 14px;
+}
+
+.placeholder-action {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px dashed #cbd2d9;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #627d98;
+  text-align: left;
+}
+
+.item-row {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.selected-row {
+  background: #f4f8fc;
+}
+
+.custom-field-row {
+  cursor: pointer;
+}
+
+.item-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.item-details,
+.details-panel-card {
+  display: none;
+  margin-top: 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.details-panel-card {
+  display: block;
+  margin-top: 0;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.detail-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.detail-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+}
+
+.detail-row dt {
+  color: #627d98;
+  font-size: 13px;
+}
+
+.detail-row dd {
+  margin: 0;
+  color: #1f2933;
+  word-break: break-word;
+}
+
+.detail-empty {
+  margin: 8px 0 0;
+  color: #829ab1;
+  font-size: 13px;
 }
 
 .custom-field-controls {
@@ -276,12 +448,46 @@ body {
   background: #ffe3e3;
 }
 
+@media (max-width: 899px) {
+  .container {
+    max-width: 720px;
+  }
+
+  .app-header {
+    flex-direction: column;
+  }
+
+  .top-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .inventory-layout {
+    display: block;
+  }
+
+  .details-panel {
+    display: none;
+  }
+
+  .item-details {
+    display: block;
+  }
+}
+
 @media (max-width: 560px) {
-  .controls,
+  .quick-add,
+  .top-search,
   .custom-field-controls,
   .field-sort-control,
-  .list li {
+  .item-summary,
+  .items-section li {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .module-section summary {
+    align-items: flex-start;
     flex-direction: column;
   }
 
@@ -291,6 +497,11 @@ body {
 
   .custom-value-fields {
     grid-template-columns: 1fr;
+  }
+
+  .detail-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .item-actions {
