@@ -1,7 +1,11 @@
 import './style.css'
 import {
   addItem,
+  addAttachment,
+  deleteAttachment,
   deleteItem,
+  getAttachmentDataUrl,
+  listAttachments,
   listItems,
   listItemCustomFieldValues,
   setItemCustomFieldValues,
@@ -11,6 +15,7 @@ import { setupCustomFields } from './custom-fields'
 import { renderDetailsPanel, renderItems } from './render'
 import { clearStatus, getErrorMessage, showStatus } from './status'
 import type {
+  Attachment,
   CustomField,
   CustomFieldValueInput,
   CustomFieldValueMap,
@@ -18,13 +23,17 @@ import type {
   SelectedDetail,
 } from './types'
 
-let editingId: number | null = null
 let allItems: Item[] = []
 let customFields: CustomField[] = []
 let customFieldValues: CustomFieldValueMap = {}
 let searchTerm = ''
 let selectedDetail: SelectedDetail = null
 let customFieldControls: { render: () => void } | undefined
+
+// Detail panel state
+let detailEditMode = false
+let itemAttachments: Attachment[] = []
+let attachmentUrls: Map<number, string> = new Map()
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) {
@@ -131,7 +140,7 @@ function buildCustomFieldValueMap(values: Awaited<ReturnType<typeof listItemCust
 
 function renderVisibleItems() {
   normalizeSelectedDetail()
-  renderItems(list, getVisibleItems(), editingId, selectedDetail, customFields, customFieldValues)
+  renderItems(list, getVisibleItems(), selectedDetail, customFields, customFieldValues)
   renderSelectedDetail()
 }
 
@@ -142,12 +151,18 @@ function renderSelectedDetail() {
     allItems,
     customFields,
     customFieldValues,
+    detailEditMode,
+    itemAttachments,
+    attachmentUrls,
   )
 }
 
 function normalizeSelectedDetail() {
   if (selectedDetail?.type === 'item' && !allItems.some((item) => item.id === selectedDetail?.id)) {
     selectedDetail = null
+    detailEditMode = false
+    itemAttachments = []
+    attachmentUrls.clear()
   }
 
   if (
@@ -159,18 +174,48 @@ function normalizeSelectedDetail() {
 }
 
 function toggleSelectedDetail(nextDetail: Exclude<SelectedDetail, null>) {
-  selectedDetail =
-    selectedDetail?.type === nextDetail.type && selectedDetail.id === nextDetail.id
-      ? null
-      : nextDetail
+  if (
+    selectedDetail?.type === nextDetail.type &&
+    selectedDetail.id === nextDetail.id
+  ) {
+    selectedDetail = null
+    detailEditMode = false
+    itemAttachments = []
+    attachmentUrls.clear()
+  } else {
+    selectedDetail = nextDetail
+    detailEditMode = false
+  }
   renderVisibleItems()
   customFieldControls?.render()
+}
+
+async function loadAttachments(itemId: number) {
+  try {
+    itemAttachments = await listAttachments(itemId)
+    attachmentUrls.clear()
+    for (const att of itemAttachments) {
+      if (att.mime_type.startsWith('image/')) {
+        const url = await getAttachmentDataUrl(att.id)
+        attachmentUrls.set(att.id, url)
+      }
+    }
+  } catch {
+    itemAttachments = []
+    attachmentUrls.clear()
+  }
 }
 
 async function refresh() {
   try {
     allItems = await listItems()
     customFieldValues = buildCustomFieldValueMap(await listItemCustomFieldValues())
+
+    // Reload attachments if an item is selected
+    if (selectedDetail?.type === 'item') {
+      await loadAttachments(selectedDetail.id)
+    }
+
     renderVisibleItems()
     customFieldControls?.render()
   } catch (error) {
@@ -178,9 +223,9 @@ async function refresh() {
   }
 }
 
-function getEditedCustomFieldValues(id: number): CustomFieldValueInput[] {
-  const inputs = document.querySelectorAll<HTMLInputElement>(
-    `.custom-field-value-input[data-id="${id}"]`,
+function getEditedCustomFieldValues(): CustomFieldValueInput[] {
+  const inputs = detailsPanelContent.querySelectorAll<HTMLInputElement>(
+    '.custom-field-value-input',
   )
   return [...inputs].flatMap((input) => {
     const fieldId = Number(input.dataset.fieldId)
@@ -188,6 +233,13 @@ function getEditedCustomFieldValues(id: number): CustomFieldValueInput[] {
     return [{ field_id: fieldId, value: input.value.trim() }]
   })
 }
+
+function getEditedItemName(): string {
+  const nameInput = detailsPanelContent.querySelector<HTMLInputElement>('.detail-name-input')
+  return nameInput?.value.trim() ?? ''
+}
+
+// ── Add item ──
 
 addBtn.addEventListener('click', async () => {
   const name = input.value.trim()
@@ -208,69 +260,30 @@ input.addEventListener('keydown', async (event) => {
   addBtn.click()
 })
 
+// ── Search ──
+
 searchInput.addEventListener('input', () => {
   searchTerm = searchInput.value
-  if (editingId !== null) {
-    editingId = null
-  }
   renderVisibleItems()
 })
 
+// ── Item list events ──
+
 list.addEventListener('click', async (event) => {
   const target = event.target as HTMLElement
-  const id = Number(target.getAttribute('data-id'))
-
-  if (target.matches('.edit-btn')) {
-    if (!Number.isFinite(id)) return
-    clearStatus(statusMessage)
-    editingId = id
-    await refresh()
-    const editInput = document.querySelector<HTMLInputElement>(
-      `.name-edit-input[data-id="${id}"]`,
-    )
-    editInput?.focus()
-    editInput?.select()
-    return
-  }
-
-  if (target.matches('.cancel-btn')) {
-    clearStatus(statusMessage)
-    editingId = null
-    await refresh()
-    return
-  }
-
-  if (target.matches('.save-btn')) {
-    if (!Number.isFinite(id)) return
-    const nameInput = document.querySelector<HTMLInputElement>(
-      `.name-edit-input[data-id="${id}"]`,
-    )
-    const name = nameInput?.value.trim() ?? ''
-    if (!name) return
-    clearStatus(statusMessage)
-    try {
-      await updateItem(id, name)
-      await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
-      editingId = null
-      await refresh()
-      showStatus(statusMessage, 'Item saved', 'success')
-    } catch (error) {
-      showStatus(statusMessage, getErrorMessage(error), 'error')
-    }
-    return
-  }
 
   if (target.matches('.delete-btn')) {
+    const id = Number(target.dataset.id)
     if (!Number.isFinite(id)) return
 
     clearStatus(statusMessage)
     try {
       await deleteItem(id)
-      if (editingId === id) {
-        editingId = null
-      }
       if (selectedDetail?.type === 'item' && selectedDetail.id === id) {
         selectedDetail = null
+        detailEditMode = false
+        itemAttachments = []
+        attachmentUrls.clear()
       }
       await refresh()
       showStatus(statusMessage, 'Item deleted', 'success')
@@ -280,46 +293,116 @@ list.addEventListener('click', async (event) => {
     return
   }
 
+  // Click on item row to select/deselect
   const row = target.closest<HTMLLIElement>('.item-row')
   const rowId = Number(row?.dataset.itemId)
   if (Number.isFinite(rowId)) {
     clearStatus(statusMessage)
     toggleSelectedDetail({ type: 'item', id: rowId })
+    // Load attachments for the selected item
+    if (selectedDetail?.type === 'item') {
+      await loadAttachments(selectedDetail.id)
+      renderSelectedDetail()
+    }
   }
 })
 
-list.addEventListener('keydown', async (event) => {
-  const target = event.target as HTMLInputElement
-  if (!target.matches('.edit-input')) return
+// ── Detail panel events ──
 
-  const id = Number(target.getAttribute('data-id'))
-  if (!Number.isFinite(id)) return
+detailsPanelContent.addEventListener('click', async (event) => {
+  const target = event.target as HTMLElement
 
-  if (event.key === 'Enter') {
-    const nameInput = document.querySelector<HTMLInputElement>(
-      `.name-edit-input[data-id="${id}"]`,
-    )
-    const name = nameInput?.value.trim() ?? ''
-    if (!name) return
+  // Edit button in detail view
+  if (target.matches('.detail-edit-btn')) {
+    detailEditMode = true
+    renderSelectedDetail()
+    return
+  }
+
+  // Save button in detail edit mode
+  if (target.matches('.detail-save-btn')) {
+    const id = Number(target.dataset.id)
+    if (!Number.isFinite(id)) return
+
+    const name = getEditedItemName()
+    if (!name) {
+      showStatus(statusMessage, 'Name cannot be empty', 'error')
+      return
+    }
+
     clearStatus(statusMessage)
     try {
       await updateItem(id, name)
-      await setItemCustomFieldValues(id, getEditedCustomFieldValues(id))
-      editingId = null
+      await setItemCustomFieldValues(id, getEditedCustomFieldValues())
+      detailEditMode = false
       await refresh()
       showStatus(statusMessage, 'Item saved', 'success')
     } catch (error) {
       showStatus(statusMessage, getErrorMessage(error), 'error')
     }
+    return
   }
 
-  if (event.key === 'Escape') {
-    editingId = null
-    await refresh()
+  // Cancel button in detail edit mode
+  if (target.matches('.detail-cancel-btn')) {
+    detailEditMode = false
+    renderSelectedDetail()
+    return
+  }
+
+  // Delete attachment button
+  if (target.matches('.attachment-delete-btn')) {
+    const attId = Number(target.dataset.attachmentId)
+    if (!Number.isFinite(attId)) return
+
+    clearStatus(statusMessage)
+    try {
+      await deleteAttachment(attId)
+      if (selectedDetail?.type === 'item') {
+        await loadAttachments(selectedDetail.id)
+      }
+      renderSelectedDetail()
+      showStatus(statusMessage, 'Attachment removed', 'success')
+    } catch (error) {
+      showStatus(statusMessage, getErrorMessage(error), 'error')
+    }
+    return
   }
 })
 
-refresh()
+// ── Attachment upload ──
+
+detailsPanelContent.addEventListener('change', async (event) => {
+  const target = event.target as HTMLInputElement
+  if (!target.matches('.attachment-upload-input')) return
+
+  if (selectedDetail?.type !== 'item') return
+  const itemId = selectedDetail.id
+
+  const files = target.files
+  if (!files || files.length === 0) return
+
+  clearStatus(statusMessage)
+  for (const file of Array.from(files)) {
+    try {
+      const buffer = await file.arrayBuffer()
+      const fileData = Array.from(new Uint8Array(buffer))
+      await addAttachment(itemId, file.name, file.type, fileData)
+    } catch (error) {
+      showStatus(statusMessage, getErrorMessage(error), 'error')
+      target.value = ''
+      return
+    }
+  }
+
+  target.value = ''
+  await loadAttachments(itemId)
+  renderSelectedDetail()
+  showStatus(statusMessage, 'Attachment(s) added', 'success')
+})
+
+// ── Custom fields ──
+
 customFieldControls = setupCustomFields({
   input: fieldInput,
   button: fieldAddBtn,
@@ -338,3 +421,5 @@ customFieldControls = setupCustomFields({
   },
 })
 
+// Initial load
+refresh()

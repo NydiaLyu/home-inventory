@@ -1,8 +1,10 @@
+mod attachments;
 mod custom_fields;
 mod db;
 mod item_custom_field_values;
 mod time;
 
+use attachments::{add_attachment, delete_attachment, get_attachment_data_url, list_attachments};
 use custom_fields::{add_custom_field, delete_custom_field, list_custom_fields, update_custom_field};
 use item_custom_field_values::{list_item_custom_field_values, set_item_custom_field_values};
 use serde::Serialize;
@@ -73,6 +75,22 @@ fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
 #[tauri::command]
 fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
   let mut conn = db::open(&state.path).map_err(|e| e.to_string())?;
+
+  // Collect attachment file paths before deleting
+  let file_paths: Vec<String> = {
+    let mut stmt = conn
+      .prepare("SELECT file_path FROM item_attachments WHERE item_id = ?1")
+      .map_err(|e| e.to_string())?;
+    let rows = stmt
+      .query_map(rusqlite::params![id], |row| row.get::<_, String>(0))
+      .map_err(|e| e.to_string())?;
+    let mut paths = Vec::new();
+    for row in rows {
+      paths.push(row.map_err(|e| e.to_string())?);
+    }
+    paths
+  };
+
   let tx = conn.transaction().map_err(|e| e.to_string())?;
   tx.execute(
     "DELETE FROM item_custom_field_values WHERE item_id = ?1",
@@ -89,6 +107,12 @@ fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
   }
 
   tx.commit().map_err(|e| e.to_string())?;
+
+  // Remove attachment files from disk
+  for path in file_paths {
+    let _ = std::fs::remove_file(&path);
+  }
+
   Ok(())
 }
 
@@ -149,7 +173,12 @@ pub fn run() {
       delete_custom_field,
       update_custom_field,
       list_item_custom_field_values,
-      set_item_custom_field_values
+      set_item_custom_field_values,
+
+      add_attachment,
+      list_attachments,
+      delete_attachment,
+      get_attachment_data_url,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

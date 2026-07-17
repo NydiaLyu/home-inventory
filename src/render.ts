@@ -1,4 +1,4 @@
-import type { CustomField, CustomFieldValueMap, Item, SelectedDetail } from './types'
+import type { Attachment, CustomField, CustomFieldValueMap, Item, SelectedDetail } from './types'
 
 function createButton(label: string, className: string, id: number) {
   const button = document.createElement('button')
@@ -35,57 +35,7 @@ function createActions(buttons: HTMLButtonElement[]) {
   return actions
 }
 
-function createCustomFieldInput(item: Item, field: CustomField, customFieldValues: CustomFieldValueMap) {
-  const fieldWrapper = document.createElement('label')
-  fieldWrapper.className = 'custom-value-field'
-
-  const label = document.createElement('span')
-  label.textContent = field.name
-
-  const input = createTextInput(
-    'edit-input custom-field-value-input',
-    item.id,
-    customFieldValues[item.id]?.[field.id] ?? '',
-  )
-  input.dataset.fieldId = String(field.id)
-
-  fieldWrapper.append(label, input)
-  return fieldWrapper
-}
-
-function createEditableItem(
-  item: Item,
-  customFields: CustomField[],
-  customFieldValues: CustomFieldValueMap,
-) {
-  const row = document.createElement('li')
-  row.dataset.itemId = String(item.id)
-
-  const fields = document.createElement('div')
-  fields.className = 'edit-fields'
-  fields.append(
-    createTextInput('edit-input name-edit-input', item.id, item.name),
-  )
-
-  if (customFields.length > 0) {
-    const customValueFields = document.createElement('div')
-    customValueFields.className = 'custom-value-fields'
-    customValueFields.append(
-      ...customFields.map((field) => createCustomFieldInput(item, field, customFieldValues)),
-    )
-    fields.append(customValueFields)
-  }
-
-  row.append(
-    fields,
-    createActions([
-      createButton('Save', 'save-btn', item.id),
-      createButton('Cancel', 'cancel-btn', item.id),
-    ]),
-  )
-
-  return row
-}
+// ── List items ──
 
 function createDisplayItem(
   item: Item,
@@ -130,24 +80,17 @@ function createDisplayItem(
   summary.append(
     main,
     createActions([
-      createButton('Edit', 'edit-btn', item.id),
       createButton('Delete', 'delete-btn', item.id),
     ]),
   )
 
   row.append(summary)
-
-  if (selectedDetail?.type === 'item' && selectedDetail.id === item.id) {
-    row.append(createItemDetails(item, customFields, customFieldValues))
-  }
-
   return row
 }
 
 export function renderItems(
   list: HTMLUListElement,
   items: Item[],
-  editingId: number | null,
   selectedDetail: SelectedDetail,
   customFields: CustomField[],
   customFieldValues: CustomFieldValueMap,
@@ -158,13 +101,11 @@ export function renderItems(
   }
 
   list.replaceChildren(
-    ...items.map((item) =>
-      editingId === item.id
-        ? createEditableItem(item, customFields, customFieldValues)
-        : createDisplayItem(item, customFields, customFieldValues, selectedDetail),
-    ),
+    ...items.map((item) => createDisplayItem(item, customFields, customFieldValues, selectedDetail)),
   )
 }
+
+// ── Detail panel ──
 
 function formatCreatedAt(timestamp: number) {
   return new Date(timestamp * 1000).toLocaleString()
@@ -184,30 +125,37 @@ function createDetailRow(labelText: string, valueText: string) {
   return row
 }
 
-function createItemDetails(
-  item: Item,
-  customFields: CustomField[],
-  customFieldValues: CustomFieldValueMap,
-) {
-  return createDetailsCard(item, customFields, customFieldValues, 'item-details')
-}
-
-function createDetailsCard(
-  item: Item,
-  customFields: CustomField[],
-  customFieldValues: CustomFieldValueMap,
-  className: string,
-) {
-  const container = document.createElement('section')
-  container.className = className
-
+function createDetailHeader(title: string, actions: HTMLButtonElement[]) {
   const header = document.createElement('div')
   header.className = 'detail-header'
 
-  const title = document.createElement('h2')
-  title.textContent = item.name
+  const titleEl = document.createElement('h2')
+  titleEl.textContent = title
 
-  header.append(title)
+  const actionsEl = document.createElement('div')
+  actionsEl.className = 'detail-header-actions'
+  actionsEl.append(...actions)
+
+  header.append(titleEl, actionsEl)
+  return header
+}
+
+// ── Item detail: view mode ──
+
+export function renderItemDetailView(
+  container: HTMLElement,
+  item: Item,
+  customFields: CustomField[],
+  customFieldValues: CustomFieldValueMap,
+  attachments: Attachment[],
+  attachmentUrls: Map<number, string>,
+) {
+  container.replaceChildren()
+
+  const header = createDetailHeader(item.name, [
+    createButton('Edit', 'edit-btn detail-edit-btn', item.id),
+  ])
+  container.append(header)
 
   const details = document.createElement('dl')
   details.className = 'detail-list'
@@ -227,16 +175,266 @@ function createDetailsCard(
     )
   }
 
-  const empty = document.createElement('p')
-  empty.className = 'detail-empty'
-  empty.textContent = 'No custom field values'
+  container.append(details)
 
-  container.replaceChildren(
-    header,
-    details,
-    ...(filledCustomFields.length === 0 ? [empty] : []),
+  // Attachments section
+  const attachSection = createAttachmentsView(attachments, attachmentUrls)
+  container.append(attachSection)
+}
+
+// ── Item detail: edit mode ──
+
+export function renderItemDetailEdit(
+  container: HTMLElement,
+  item: Item,
+  customFields: CustomField[],
+  customFieldValues: CustomFieldValueMap,
+  attachments: Attachment[],
+  attachmentUrls: Map<number, string>,
+) {
+  container.replaceChildren()
+
+  const header = createDetailHeader('Edit Item', [
+    createButton('Save', 'save-btn detail-save-btn', item.id),
+    createButton('Cancel', 'cancel-btn detail-cancel-btn', item.id),
+  ])
+  container.append(header)
+
+  // Edit form
+  const form = document.createElement('div')
+  form.className = 'detail-edit-form'
+
+  const nameField = document.createElement('label')
+  nameField.className = 'detail-edit-field'
+  nameField.append(
+    Object.assign(document.createElement('span'), { textContent: 'Name' }),
+    createTextInput('edit-input detail-name-input', item.id, item.name),
   )
-  return container
+  form.append(nameField)
+
+  if (customFields.length > 0) {
+    const customSection = document.createElement('div')
+    customSection.className = 'detail-custom-fields-edit'
+
+    customFields.forEach((field) => {
+      const fieldLabel = document.createElement('label')
+      fieldLabel.className = 'detail-edit-field'
+
+      const input = createTextInput(
+        'edit-input custom-field-value-input',
+        item.id,
+        customFieldValues[item.id]?.[field.id] ?? '',
+      )
+      input.dataset.fieldId = String(field.id)
+
+      fieldLabel.append(
+        Object.assign(document.createElement('span'), { textContent: field.name }),
+        input,
+      )
+      customSection.append(fieldLabel)
+    })
+
+    form.append(customSection)
+  }
+
+  container.append(form)
+
+  // Attachments section (with delete buttons in edit mode)
+  const attachSection = createAttachmentsEdit(attachments, attachmentUrls)
+  container.append(attachSection)
+}
+
+// ── Attachments display ──
+
+function isImageMime(mime: string) {
+  return mime.startsWith('image/')
+}
+
+function createAttachmentsView(
+  attachments: Attachment[],
+  urls: Map<number, string>,
+) {
+  const section = document.createElement('div')
+  section.className = 'detail-attachments'
+
+  const title = document.createElement('h3')
+  title.textContent = 'Attachments'
+  section.append(title)
+
+  if (attachments.length === 0) {
+    const empty = document.createElement('p')
+    empty.className = 'attachment-empty'
+    empty.textContent = 'No attachments'
+    section.append(empty)
+    return section
+  }
+
+  const grid = document.createElement('div')
+  grid.className = 'attachment-grid'
+
+  for (const att of attachments) {
+    const card = document.createElement('div')
+    card.className = 'attachment-card'
+    card.dataset.attachmentId = String(att.id)
+
+    const url = urls.get(att.id)
+    if (url && isImageMime(att.mime_type)) {
+      const img = document.createElement('img')
+      img.src = url
+      img.alt = att.file_name
+      img.className = 'attachment-thumb'
+      img.loading = 'lazy'
+      card.append(img)
+    } else {
+      const icon = document.createElement('div')
+      icon.className = 'attachment-icon'
+      icon.textContent = att.file_name.split('.').pop()?.toUpperCase() ?? 'FILE'
+      card.append(icon)
+    }
+
+    const name = document.createElement('span')
+    name.className = 'attachment-name'
+    name.textContent = att.file_name
+    card.append(name)
+
+    grid.append(card)
+  }
+
+  section.append(grid)
+  return section
+}
+
+function createAttachmentsEdit(
+  attachments: Attachment[],
+  urls: Map<number, string>,
+) {
+  const section = document.createElement('div')
+  section.className = 'detail-attachments'
+
+  const titleRow = document.createElement('div')
+  titleRow.className = 'detail-header'
+  const title = document.createElement('h3')
+  title.textContent = 'Attachments'
+  titleRow.append(title)
+  section.append(titleRow)
+
+  if (attachments.length === 0) {
+    const empty = document.createElement('p')
+    empty.className = 'attachment-empty'
+    empty.textContent = 'No attachments'
+    section.append(empty)
+  } else {
+    const grid = document.createElement('div')
+    grid.className = 'attachment-grid'
+
+    for (const att of attachments) {
+      const card = document.createElement('div')
+      card.className = 'attachment-card'
+      card.dataset.attachmentId = String(att.id)
+
+      const url = urls.get(att.id)
+      if (url && isImageMime(att.mime_type)) {
+        const img = document.createElement('img')
+        img.src = url
+        img.alt = att.file_name
+        img.className = 'attachment-thumb'
+        img.loading = 'lazy'
+        card.append(img)
+      } else {
+        const icon = document.createElement('div')
+        icon.className = 'attachment-icon'
+        icon.textContent = att.file_name.split('.').pop()?.toUpperCase() ?? 'FILE'
+        card.append(icon)
+      }
+
+      const name = document.createElement('span')
+      name.className = 'attachment-name'
+      name.textContent = att.file_name
+      card.append(name)
+
+      const delBtn = document.createElement('button')
+      delBtn.type = 'button'
+      delBtn.className = 'attachment-delete-btn'
+      delBtn.dataset.attachmentId = String(att.id)
+      delBtn.textContent = 'Remove'
+      card.append(delBtn)
+
+      grid.append(card)
+    }
+
+    section.append(grid)
+  }
+
+  // Upload area
+  const uploadArea = document.createElement('div')
+  uploadArea.className = 'attachment-upload-area'
+
+  const uploadLabel = document.createElement('label')
+  uploadLabel.className = 'attachment-upload-label'
+  uploadLabel.textContent = 'Add images or files'
+
+  const uploadInput = document.createElement('input')
+  uploadInput.type = 'file'
+  uploadInput.className = 'attachment-upload-input'
+  uploadInput.multiple = true
+  uploadInput.accept = 'image/*,application/pdf'
+  uploadLabel.append(uploadInput)
+
+  uploadArea.append(uploadLabel)
+  section.append(uploadArea)
+
+  return section
+}
+
+// ── Detail panel router ──
+
+export function renderDetailsPanel(
+  container: HTMLElement,
+  selectedDetail: SelectedDetail,
+  items: Item[],
+  customFields: CustomField[],
+  customFieldValues: CustomFieldValueMap,
+  editingDetail: boolean,
+  attachments: Attachment[],
+  attachmentUrls: Map<number, string>,
+) {
+  if (!selectedDetail) {
+    const empty = document.createElement('p')
+    empty.className = 'details-panel-empty'
+    empty.textContent = 'Select an item or custom field to view details'
+    container.replaceChildren(empty)
+    return
+  }
+
+  if (selectedDetail.type === 'item') {
+    const item = items.find((i) => i.id === selectedDetail.id)
+    if (!item) {
+      const missing = document.createElement('p')
+      missing.className = 'details-panel-empty'
+      missing.textContent = 'Selected item is no longer available'
+      container.replaceChildren(missing)
+      return
+    }
+
+    if (editingDetail) {
+      renderItemDetailEdit(container, item, customFields, customFieldValues, attachments, attachmentUrls)
+    } else {
+      renderItemDetailView(container, item, customFields, customFieldValues, attachments, attachmentUrls)
+    }
+    return
+  }
+
+  // Custom field detail
+  const field = customFields.find((f) => f.id === selectedDetail.id)
+  if (!field) {
+    const missing = document.createElement('p')
+    missing.className = 'details-panel-empty'
+    missing.textContent = 'Selected detail is no longer available'
+    container.replaceChildren(missing)
+    return
+  }
+
+  container.replaceChildren(createCustomFieldDetails(field, customFieldValues))
 }
 
 function countFieldUsage(values: CustomFieldValueMap, fieldId: number) {
@@ -246,17 +444,15 @@ function countFieldUsage(values: CustomFieldValueMap, fieldId: number) {
 function createCustomFieldDetails(
   field: CustomField,
   customFieldValues: CustomFieldValueMap,
-  className: string,
 ) {
   const container = document.createElement('section')
-  container.className = className
+  container.className = 'details-panel-card'
 
   const header = document.createElement('div')
   header.className = 'detail-header'
 
   const title = document.createElement('h2')
   title.textContent = field.name
-
   header.append(title)
 
   const details = document.createElement('dl')
@@ -272,45 +468,7 @@ function createCustomFieldDetails(
   return container
 }
 
-export function renderDetailsPanel(
-  container: HTMLElement,
-  selectedDetail: SelectedDetail,
-  items: Item[],
-  customFields: CustomField[],
-  customFieldValues: CustomFieldValueMap,
-) {
-  if (!selectedDetail) {
-    const empty = document.createElement('p')
-    empty.className = 'details-panel-empty'
-    empty.textContent = 'Select an item or custom field to view details'
-    container.replaceChildren(empty)
-    return
-  }
-
-  if (selectedDetail.type === 'item') {
-    const item = items.find((item) => item.id === selectedDetail.id)
-    container.replaceChildren(
-      item
-        ? createDetailsCard(item, customFields, customFieldValues, 'details-panel-card')
-        : createMissingDetail(),
-    )
-    return
-  }
-
-  const field = customFields.find((field) => field.id === selectedDetail.id)
-  container.replaceChildren(
-    field
-      ? createCustomFieldDetails(field, customFieldValues, 'details-panel-card')
-      : createMissingDetail(),
-  )
-}
-
-function createMissingDetail() {
-  const empty = document.createElement('p')
-  empty.className = 'details-panel-empty'
-  empty.textContent = 'Selected detail is no longer available'
-  return empty
-}
+// ── Custom fields list ──
 
 export function renderCustomFields(
   list: HTMLUListElement,

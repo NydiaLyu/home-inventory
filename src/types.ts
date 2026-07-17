@@ -29,3 +29,12 @@ export type SelectedDetail =
   | { type: 'item'; id: number }
   | { type: 'customField'; id: number }
   | null
+
+export type Attachment = {
+  id: number
+  item_id: number
+  file_name: string
+  mime_type: string
+  file_path: string
+  created_at: number
+}

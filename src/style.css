@@ -228,8 +228,7 @@ body {
 }
 
 .item-row {
-  align-items: stretch;
-  flex-direction: column;
+  cursor: pointer;
 }
 
 .selected-row {
@@ -249,19 +248,8 @@ body {
   cursor: pointer;
 }
 
-.item-details,
-.details-panel-card {
+.item-details {
   display: none;
-  margin-top: 10px;
-  border: 1px solid #d9e2ec;
-  border-radius: 10px;
-  background: #f8fafc;
-  padding: 14px;
-}
-
-.details-panel-card {
-  display: block;
-  margin-top: 0;
 }
 
 .detail-header {
@@ -448,6 +436,157 @@ body {
   background: #ffe3e3;
 }
 
+/* ── Detail panel header actions ── */
+
+.detail-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-edit-btn,
+.detail-save-btn,
+.detail-cancel-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ── Detail edit form ── */
+
+.detail-edit-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #52606d;
+  font-size: 13px;
+}
+
+.detail-edit-field .edit-input {
+  width: 100%;
+}
+
+.detail-custom-fields-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* ── Attachments ── */
+
+.detail-attachments {
+  margin-top: 16px;
+  border-top: 1px solid #e4e7eb;
+  padding-top: 14px;
+}
+
+.detail-attachments h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #1f2933;
+}
+
+.attachment-empty {
+  margin: 0;
+  color: #829ab1;
+  font-size: 13px;
+}
+
+.attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.attachment-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.attachment-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.attachment-icon {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #f0f4f8;
+  color: #627d98;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.attachment-name {
+  font-size: 11px;
+  color: #52606d;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.attachment-delete-btn {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #d64545;
+  background: #fff4f4;
+  color: #a61b1b;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.attachment-delete-btn:hover {
+  background: #ffe3e3;
+}
+
+.attachment-upload-area {
+  margin-top: 10px;
+}
+
+.attachment-upload-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px dashed #cbd2d9;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #627d98;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.attachment-upload-label:hover {
+  background: #f0f4f8;
+  border-color: #9aa5b1;
+}
+
+.attachment-upload-input {
+  display: none;
+}
+
 @media (max-width: 899px) {
   .container {
     max-width: 720px;
@@ -468,10 +607,6 @@ body {
 
   .details-panel {
     display: none;
-  }
-
-  .item-details {
-    display: block;
   }
 }
 
@@ -496,6 +631,10 @@ body {
   }
 
   .custom-value-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-custom-fields-edit {
     grid-template-columns: 1fr;
   }
 
