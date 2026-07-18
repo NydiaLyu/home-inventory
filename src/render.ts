@@ -149,6 +149,7 @@ export function renderItemDetailView(
   customFieldValues: CustomFieldValueMap,
   attachments: Attachment[],
   attachmentUrls: Map<number, string>,
+  onImageClick?: (id: number) => void,
 ) {
   container.replaceChildren()
 
@@ -177,8 +178,7 @@ export function renderItemDetailView(
 
   container.append(details)
 
-  // Attachments section
-  const attachSection = createAttachmentsView(attachments, attachmentUrls)
+  const attachSection = createAttachmentsView(attachments, attachmentUrls, onImageClick)
   container.append(attachSection)
 }
 
@@ -253,6 +253,7 @@ function isImageMime(mime: string) {
 function createAttachmentsView(
   attachments: Attachment[],
   urls: Map<number, string>,
+  onImageClick?: (id: number) => void,
 ) {
   const section = document.createElement('div')
   section.className = 'detail-attachments'
@@ -284,6 +285,8 @@ function createAttachmentsView(
       img.alt = att.file_name
       img.className = 'attachment-thumb'
       img.loading = 'lazy'
+      img.style.cursor = 'pointer'
+      img.addEventListener('click', () => onImageClick?.(att.id))
       card.append(img)
     } else {
       const icon = document.createElement('div')
@@ -397,6 +400,7 @@ export function renderDetailsPanel(
   editingDetail: boolean,
   attachments: Attachment[],
   attachmentUrls: Map<number, string>,
+  onImageClick?: (id: number) => void,
 ) {
   if (!selectedDetail) {
     const empty = document.createElement('p')
@@ -419,12 +423,11 @@ export function renderDetailsPanel(
     if (editingDetail) {
       renderItemDetailEdit(container, item, customFields, customFieldValues, attachments, attachmentUrls)
     } else {
-      renderItemDetailView(container, item, customFields, customFieldValues, attachments, attachmentUrls)
+      renderItemDetailView(container, item, customFields, customFieldValues, attachments, attachmentUrls, onImageClick)
     }
     return
   }
 
-  // Custom field detail
   const field = customFields.find((f) => f.id === selectedDetail.id)
   if (!field) {
     const missing = document.createElement('p')

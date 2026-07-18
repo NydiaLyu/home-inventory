@@ -5,6 +5,7 @@ import {
   deleteAttachment,
   deleteItem,
   getAttachmentDataUrl,
+  getThumbnailDataUrl,
   listAttachments,
   listItems,
   listItemCustomFieldValues,
@@ -154,6 +155,7 @@ function renderSelectedDetail() {
     detailEditMode,
     itemAttachments,
     attachmentUrls,
+    (id) => loadOriginalImage(id),
   )
 }
 
@@ -196,13 +198,23 @@ async function loadAttachments(itemId: number) {
     attachmentUrls.clear()
     for (const att of itemAttachments) {
       if (att.mime_type.startsWith('image/')) {
-        const url = await getAttachmentDataUrl(att.id)
+        const url = await getThumbnailDataUrl(att.id)
         attachmentUrls.set(att.id, url)
       }
     }
   } catch {
     itemAttachments = []
     attachmentUrls.clear()
+  }
+}
+
+async function loadOriginalImage(attachmentId: number) {
+  try {
+    const url = await getAttachmentDataUrl(attachmentId)
+    attachmentUrls.set(attachmentId, url)
+    renderSelectedDetail()
+  } catch (error) {
+    showStatus(statusMessage, getErrorMessage(error), 'error')
   }
 }
 

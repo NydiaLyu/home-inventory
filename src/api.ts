@@ -56,3 +56,7 @@ export function deleteAttachment(id: number) {
 export function getAttachmentDataUrl(id: number) {
   return invoke<string>('get_attachment_data_url', { id })
 }
+
+export function getThumbnailDataUrl(id: number) {
+  return invoke<string>('get_thumbnail_data_url', { id })
+}

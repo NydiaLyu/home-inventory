@@ -25,3 +25,5 @@ tauri = { version = "2.10.3", features = [] }
 tauri-plugin-log = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 base64 = "0.22"
+image = { version = "0.24", features = ["jpeg", "png"] }
+tokio = { version = "1", features = ["full"] }

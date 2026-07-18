@@ -48,15 +48,42 @@ pub fn init(db_path: &Path) -> Result<(), Box<dyn Error>> {
       file_name TEXT NOT NULL,
       mime_type TEXT NOT NULL,
       file_path TEXT NOT NULL,
+      thumbnail_path TEXT,
       created_at INTEGER NOT NULL,
       FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
     )",
     [],
   )?;
 
+  let has_thumbnail = {
+    let mut stmt = conn.prepare("PRAGMA table_info(item_attachments)")?;
+    let mut has_col = false;
+    let rows = stmt.query_map([], |row| {
+      let name: String = row.get(1)?;
+      if name == "thumbnail_path" {
+        has_col = true;
+      }
+      Ok(())
+    })?;
+    for _ in rows {}
+    has_col
+  };
+
+  if !has_thumbnail {
+    conn.execute(
+      "ALTER TABLE item_attachments ADD COLUMN thumbnail_path TEXT",
+      [],
+    )?;
+  }
+
   Ok(())
 }
 
 pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
-  Connection::open(db_path)
+  let conn = Connection::open(db_path)?;
+  // PRAGMA foreign_keys is per-connection; init() only sets it for the setup
+  // connection, so every command connection must re-enable it to ensure
+  // ON DELETE CASCADE actually fires.
+  conn.pragma_update(None, "foreign_keys", "ON")?;
+  Ok(conn)
 }

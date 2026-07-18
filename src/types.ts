@@ -36,5 +36,6 @@ export type Attachment = {
   file_name: string
   mime_type: string
   file_path: string
+  thumbnail_path: string
   created_at: number
 }

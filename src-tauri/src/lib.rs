@@ -4,7 +4,7 @@ mod db;
 mod item_custom_field_values;
 mod time;
 
-use attachments::{add_attachment, delete_attachment, get_attachment_data_url, list_attachments};
+use attachments::{add_attachment, delete_attachment, get_attachment_data_url, get_thumbnail_data_url, list_attachments};
 use custom_fields::{add_custom_field, delete_custom_field, list_custom_fields, update_custom_field};
 use item_custom_field_values::{list_item_custom_field_values, set_item_custom_field_values};
 use serde::Serialize;
@@ -76,10 +76,17 @@ fn list_items(state: tauri::State<DbState>) -> Result<Vec<Item>, String> {
 fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
   let mut conn = db::open(&state.path).map_err(|e| e.to_string())?;
 
-  // Collect attachment file paths before deleting
+  // Collect attachment file paths (both original and thumbnail) before
+  // deleting, so we can clean up files on disk. Relying solely on the
+  // ON DELETE CASCADE from foreign_keys=ON would orphan the files.
   let file_paths: Vec<String> = {
     let mut stmt = conn
-      .prepare("SELECT file_path FROM item_attachments WHERE item_id = ?1")
+      .prepare(
+        "SELECT file_path FROM item_attachments WHERE item_id = ?1
+         UNION ALL
+         SELECT thumbnail_path FROM item_attachments
+           WHERE item_id = ?1 AND thumbnail_path IS NOT NULL",
+      )
       .map_err(|e| e.to_string())?;
     let rows = stmt
       .query_map(rusqlite::params![id], |row| row.get::<_, String>(0))
@@ -92,8 +99,18 @@ fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
   };
 
   let tx = conn.transaction().map_err(|e| e.to_string())?;
+  // Explicit deletes are kept as defense-in-depth even though
+  // foreign_keys=ON (see db::open) would cascade them when the item row
+  // is removed. This keeps cleanup correct even if a future schema change
+  // relaxes the cascade.
   tx.execute(
     "DELETE FROM item_custom_field_values WHERE item_id = ?1",
+    rusqlite::params![id],
+  )
+  .map_err(|e| e.to_string())?;
+
+  tx.execute(
+    "DELETE FROM item_attachments WHERE item_id = ?1",
     rusqlite::params![id],
   )
   .map_err(|e| e.to_string())?;
@@ -108,7 +125,7 @@ fn delete_item(state: tauri::State<DbState>, id: i64) -> Result<(), String> {
 
   tx.commit().map_err(|e| e.to_string())?;
 
-  // Remove attachment files from disk
+  // Remove attachment files (and thumbnails) from disk
   for path in file_paths {
     let _ = std::fs::remove_file(&path);
   }
@@ -179,6 +196,7 @@ pub fn run() {
       list_attachments,
       delete_attachment,
       get_attachment_data_url,
+      get_thumbnail_data_url,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
